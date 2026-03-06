@@ -5,7 +5,7 @@ AI-powered agent that fetches Azure DevOps work items, generates LLM-summarized 
 ## Features
 
 - **Azure DevOps Integration** — Queries work items via WIQL, fetches details and comments
-- **LLM Summarization** — Uses OpenAI or Azure OpenAI to generate executive summaries, progress tables, metrics, challenges, and next steps
+- **LLM Summarization** — Uses OpenAI, Azure OpenAI, or a local Ollama model (e.g. Llama) to generate executive summaries, progress tables, metrics, challenges, and next steps
 - **Multi-Month Comparison** — Compare metrics across multiple reporting periods
 - **Template Engine** — Populates a Markdown template with structured report data
 - **Interactive Agent** — Conversational REPL for on-demand report generation and analysis
@@ -56,6 +56,23 @@ docs/              Documentation
    REPORT_END_DATE=2026-02-01
    ```
 
+### Running locally with Ollama (no cloud LLM required)
+
+You can run the agent entirely offline using [Ollama](https://ollama.com/) with a local model like Llama:
+
+1. Install Ollama and pull a model:
+   ```bash
+   ollama pull llama3
+   ```
+
+2. Set these values in your `.env`:
+   ```
+   LLM_PROVIDER=ollama
+   LLM_ENDPOINT=http://localhost:11434/v1
+   LLM_MODEL=llama3
+   ```
+   No `LLM_API_KEY` is needed — it is automatically handled when using Ollama.
+
 3. Build:
    ```bash
    npm run build
@@ -63,29 +80,64 @@ docs/              Documentation
 
 ## Usage
 
+The agent supports two execution modes: **Interactive** and **Static**. Both modes use the same underlying pipeline — fetch work items from Azure DevOps, categorize them, summarize via LLM, and produce a Markdown report.
+
 ### Interactive Mode (default)
 
 ```bash
 npm start
+# or explicitly:
+node dist/index.js
 ```
 
-This starts the conversational agent with a `psr-agent>` prompt. Type natural language commands:
+Interactive mode starts a conversational REPL with a `psr-agent>` prompt. The agent uses the configured LLM to parse your natural language input into structured intents, so you can issue commands conversationally. It maintains a session with cached ADO data to avoid re-fetching between commands.
 
-- `generate report` — Full report for the configured period
-- `generate report for January 2026` — Report for a specific period
-- `compare last 3 months` — Multi-month trend analysis
-- `show S360 metrics` — Category deep-dive
-- `set team name to Platform Team` — Change config at runtime
-- `help` — Show all commands
-- `exit` — Quit
+**Available commands:**
+
+| Command | Description |
+|---------|-------------|
+| `generate report` | Generate a full report for the configured period (`REPORT_START_DATE` → `REPORT_END_DATE`) |
+| `generate report for January 2026` | Generate a report for a specific period (the agent infers the date range) |
+| `compare last 3 months` | Fetch multiple months and produce a multi-month trend comparison |
+| `show S360 metrics` | Deep-dive into a specific category (s360, icm, rollout, monitoring, support, bugs, blockers, or all) |
+| `polish the executive summary` | Re-summarize or refine a specific section (executive, progress, metrics, challenges, next_steps, comparison, or all) |
+| `set team name to Platform Team` | Override any config value at runtime without restarting |
+| `help` | Show all available commands |
+| `exit` | Quit the agent |
+
+**Example session:**
+```
+psr-agent> generate report for February 2026
+  ⏳ Fetching work items for 2026-02-01 → 2026-03-01...
+  ✓ 42 items fetched (35 completed, 3 bugs)
+  ...
+  ✅ Report saved to ./output/report.md
+
+psr-agent> compare last 3 months
+  ⏳ Fetching work items for Dec 2025, Jan 2026, Feb 2026...
+  ✓ Comparison table generated
+
+psr-agent> show all metrics in detail
+  ...
+
+psr-agent> exit
+```
 
 ### Static Mode (one-shot)
 
 ```bash
 npm run start:static
+# or explicitly:
+node dist/index.js --static
+node dist/index.js -s
 ```
 
-Generates a single report and exits. Useful for CI/CD pipelines and scheduled runs.
+Static mode generates a single report using the date range in `.env` and exits immediately. There is no interactive prompt — it runs the full pipeline end-to-end and writes the output file.
+
+This is ideal for:
+- **CI/CD pipelines** — trigger report generation on a schedule
+- **Cron jobs** — automate monthly reports without manual intervention
+- **Scripting** — chain with other tools (e.g. email the report, commit to a repo)
 
 ## Testing
 
@@ -102,8 +154,9 @@ All configuration is via environment variables (loaded from `.env`):
 | `ADO_ORG_URL` | Yes | Azure DevOps organization URL |
 | `ADO_PAT` | Yes | Personal Access Token |
 | `ADO_PROJECT` | Yes | Project name |
-| `LLM_API_KEY` | Yes | OpenAI / Azure OpenAI API key |
-| `LLM_PROVIDER` | No | `openai` or `azure-openai` (default: `openai`) |
+| `LLM_API_KEY` | Yes* | OpenAI / Azure OpenAI API key (*not required for Ollama) |
+| `LLM_PROVIDER` | No | `openai`, `azure-openai`, or `ollama` (default: `openai`) |
+| `LLM_ENDPOINT` | No | LLM API endpoint (required for `azure-openai` and `ollama`, e.g. `http://localhost:11434/v1`) |
 | `LLM_MODEL` | No | Model name (default: `gpt-4o`) |
 | `TEAM_NAME` | No | Team name for report header |
 | `CLIENT_NAME` | No | Client name for report header |
