@@ -60,20 +60,50 @@ docs/              Documentation
 
 ### Running locally with Ollama (no cloud LLM required)
 
-You can run the agent entirely offline using [Ollama](https://ollama.com/) with a local model like Llama:
+Instead of using Azure OpenAI (which requires an Azure subscription, deployed model, and API key), you can run the entire agent locally using [Ollama](https://ollama.com/) — a free, open-source tool that runs LLMs on your own machine.
 
-1. Install Ollama and pull a model:
-   ```bash
-   ollama pull llama3
-   ```
+#### 1. Install Ollama
 
-2. Set these values in your `.env`:
-   ```
-   LLM_PROVIDER=ollama
-   LLM_ENDPOINT=http://localhost:11434/v1
-   LLM_MODEL=llama3
-   ```
-   No `LLM_API_KEY` is needed — it is automatically handled when using Ollama.
+- **Windows**: Download the installer from [ollama.com/download](https://ollama.com/download)
+- **macOS**: `brew install ollama`
+- **Linux**: `curl -fsSL https://ollama.com/install.sh | sh`
+
+#### 2. Pull a model
+
+```bash
+ollama pull llama3
+```
+
+Other compatible models: `llama3:70b`, `mistral`, `codellama`, `gemma2`. Larger models produce better summaries but require more RAM/VRAM.
+
+#### 3. Start the Ollama server
+
+```bash
+ollama serve
+```
+
+By default this runs on `http://localhost:11434`. Keep this running in a separate terminal.
+
+#### 4. Configure `.env` for Ollama
+
+```
+# ── LLM (Local — Ollama) ───────────────────────────────────────────────
+LLM_PROVIDER=ollama
+LLM_ENDPOINT=http://localhost:11434/v1
+LLM_MODEL=llama3
+# LLM_API_KEY is not needed — automatically handled for Ollama
+```
+
+All other settings (ADO credentials, reporting period, team info, etc.) remain the same as the cloud setup.
+
+#### 5. Build and run
+
+```bash
+npm run build
+npm start
+```
+
+> **Note:** Ollama runs inference locally, so generation speed depends on your hardware. A machine with a GPU will be significantly faster. The agent works the same way regardless of provider — only the LLM backend differs.
 
 3. Build:
    ```bash
