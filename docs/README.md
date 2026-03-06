@@ -2,6 +2,8 @@
 
 AI-powered agent that fetches Azure DevOps work items, generates LLM-summarized sections, and produces formatted project status reports.
 
+![Sample Report Output](images/sample-output.png)
+
 ## Features
 
 - **Azure DevOps Integration** — Queries work items via WIQL, fetches details and comments
@@ -91,6 +93,8 @@ node dist/index.js
 ```
 
 Interactive mode starts a conversational REPL with a `psr-agent>` prompt. The agent uses the configured LLM to parse your natural language input into structured intents, so you can issue commands conversationally. It maintains a session with cached ADO data to avoid re-fetching between commands.
+
+![Interactive Mode — help command](images/interactive-mode.png)
 
 **Available commands:**
 
