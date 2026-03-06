@@ -1,0 +1,4 @@
+dist/
+output/
+package-lock.json
+.env

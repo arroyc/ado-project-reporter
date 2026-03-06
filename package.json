@@ -1,0 +1,29 @@
+{
+  "name": "project-status-report-agent",
+  "version": "1.0.0",
+  "description": "AI-powered Project Status Report Agent — fetches Azure DevOps data, generates LLM-summarized reports",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "psr-agent": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:static": "node dist/index.js --static",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "azure-devops-node-api": "^14.1.0",
+    "dotenv": "^16.4.7",
+    "openai": "^4.86.2"
+  },
+  "devDependencies": {
+    "@bradygaster/squad-cli": "^0.8.20",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
