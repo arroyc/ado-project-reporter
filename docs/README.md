@@ -247,20 +247,39 @@ All configuration is via environment variables (loaded from `.env`):
 | `ADO_ORG_URL` | Yes | Azure DevOps organization URL |
 | `ADO_PAT` | Yes | Personal Access Token |
 | `ADO_PROJECT` | Yes | Project name |
-| `LLM_API_KEY` | Yes* | OpenAI / Azure OpenAI API key (*not required for Ollama) |
+| `ADO_TEAM` | No | Team name filter (scopes WIQL query to a specific team) |
+| `ADO_AREA_PATH` | No | Area path filter (e.g. `Project\Area`) |
+| `ADO_TEAM_MEMBERS` | No | Comma-separated list of team member names for filtering work items |
+| `ADO_REQUIRED_TAGS` | No | Comma-separated tags that work items must have to be included |
+| `ADO_WORK_ITEM_TYPES` | No | Comma-separated work item types to query (default: `Bug,Prod Change Request,Feature,User Story,Task`) |
+| `ADO_STATES` | No | Comma-separated terminal states to query (default: `Closed,Removed,Resolved`) |
+| `REPORT_START_DATE` | Yes | Period start (YYYY-MM-DD) |
+| `REPORT_END_DATE` | Yes | Period end (YYYY-MM-DD) |
+| **LLM** | | |
 | `LLM_PROVIDER` | No | `openai`, `azure-openai`, or `ollama` (default: `openai`) |
+| `LLM_API_KEY` | Yes* | OpenAI / Azure OpenAI API key (*not required for Ollama) |
 | `LLM_ENDPOINT` | No | LLM API endpoint (required for `azure-openai` and `ollama`, e.g. `http://localhost:11434/v1`) |
 | `LLM_MODEL` | No | Model name (default: `gpt-4o`) |
+| `LLM_API_VERSION` | No | Azure OpenAI API version (default: `2024-12-01-preview`) |
+| `VISION_ENABLED` | No | Attach work item images to LLM calls (`true`/`false`) |
+| **Category Tag Mappings** | | |
+| `ADO_CATEGORY_TAGS` | No | Comma-separated 1:1 category tags where tag name = category name (default: `s360,icm,rollout,support,milestone`) |
+| `ADO_S360_TAGS` | No | Override tags for S360 category (default: `s360`) |
+| `ADO_ICM_TAGS` | No | Override tags for ICM category (default: `icm`) |
+| `ADO_ROLLOUT_TAGS` | No | Override tags for Rollout category (default: `rollout`) |
+| `ADO_MONITORING_TAGS` | No | Override tags for Monitoring category (default: `Monitoring,dev-test-ci,pipeline-monitoring`) |
+| `ADO_SUPPORT_TAGS` | No | Override tags for Support category (default: `support`) |
+| `ADO_RISK_TAGS` | No | Override tags for Risk category (default: `risk,blocker`) |
+| `ADO_MILESTONE_TAGS` | No | Override tags for Milestone category (default: `milestone`) |
+| **Report Output** | | |
 | `TEAM_NAME` | No | Team name for report header |
 | `CLIENT_NAME` | No | Client name for report header |
 | `PREPARED_BY` | No | Author name |
-| `REPORT_START_DATE` | Yes | Period start (YYYY-MM-DD) |
-| `REPORT_END_DATE` | Yes | Period end (YYYY-MM-DD) |
 | `TEMPLATE_PATH` | No | Path to report template |
 | `OUTPUT_PATH` | No | Output file path (default: `./output/report.md`) |
 | `VERBOSE` | No | Enable verbose logging (`true`/`false`) |
 | `ENABLE_COMPARISON` | No | Enable month-over-month comparison (`true`/`false`, default: `false`) |
-| `VISION_ENABLED` | No | Attach work item images to LLM calls (`true`/`false`) |
+| **Section Titles** | | |
 | `SECTION_KEY_METRICS` | No | Custom title for Key Metrics section |
 | `SECTION_S360` | No | Custom title for S360 Status section |
 | `SECTION_RELEASES` | No | Custom title for Releases section |
@@ -270,14 +289,9 @@ All configuration is via environment variables (loaded from `.env`):
 | `SECTION_SUPPORT` | No | Custom title for Support subsection |
 | `SECTION_COMPARISON` | No | Custom title for Comparison section |
 | `SECTION_TREND_ANALYSIS` | No | Custom title for Trend Analysis section |
+| **Performance** | | |
 | `CACHE_DIR` | No | ADO cache directory (default: `.cache`) |
 | `CACHE_TTL_MINUTES` | No | Cache TTL in minutes, `0` to disable (default: `60`) |
-| `CONCURRENCY` | No | Max concurrent ADO API requests (default: `10`) |
-| `ADO_TEAM_MEMBERS` | No | Comma-separated list of team member identifiers used for grouping/ownership in reports |
-| `ADO_REQUIRED_TAGS` | No | Comma-separated list of tags that work items must have to be included in the report |
-| `ADO_WORK_ITEM_TYPES` | No | Comma-separated list of ADO work item types to fetch (e.g., `User Story,Bug,Task`) |
-| `ADO_STATES` | No | Comma-separated list of ADO states to include (e.g., `Active,Resolved,Closed`) |
-| `ADO_CATEGORY_TAGS` | No | Comma-separated list of category names used for grouping by tag (e.g., `Features,Incidents`) |
-| `ADO_*_TAGS` | No | Per-category tag mappings (e.g., `ADO_FEATURE_TAGS`, `ADO_INCIDENT_TAGS`) defining which tags belong to each category |
+| `CONCURRENCY` | No | Max concurrent ADO API requests (default: `10`, minimum: `1`) |
 
 For a complete and authoritative list of all supported environment variables (including advanced options and examples), see the `.env.*.example` files in the repository.
