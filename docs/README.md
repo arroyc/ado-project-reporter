@@ -240,27 +240,76 @@ npm test
 
 ## Configuration
 
-All configuration is via environment variables (loaded from `.env`):
+All configuration is via environment variables (loaded from `.env`). See [`.env.azure-openai.example`](../.env.azure-openai.example) and [`.env.ollama.example`](../.env.ollama.example) for full annotated examples.
+
+**Azure DevOps**
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `ADO_ORG_URL` | Yes | Azure DevOps organization URL |
 | `ADO_PAT` | Yes | Personal Access Token |
 | `ADO_PROJECT` | Yes | Project name |
+| `ADO_TEAM` | No | ADO team name for query scoping |
+| `ADO_AREA_PATH` | No | ADO area path for query scoping |
+
+**ADO Query Filters**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADO_TEAM_MEMBERS` | No | Comma-separated list of team member email aliases to filter work items by assigned user |
+| `ADO_REQUIRED_TAGS` | No | Comma-separated tags that work items must have to be included |
+| `ADO_WORK_ITEM_TYPES` | No | Comma-separated work item types to include (default: `Bug,Prod Change Request,Feature,User Story,Task`) |
+| `ADO_STATES` | No | Comma-separated terminal states to include (default: `Closed,Removed,Resolved`) |
+
+**Category Tag Mappings**
+
+Work items are classified into report categories based on their ADO tags. Use `ADO_CATEGORY_TAGS` for simple 1:1 mappings and the individual `ADO_*_TAGS` vars to override specific categories with multiple tag aliases.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADO_CATEGORY_TAGS` | No | Comma-separated 1:1 category tags where the tag name equals the category name (default: `s360,icm,rollout,support,milestone`) |
+| `ADO_S360_TAGS` | No | Tags that map to the `s360` category (overrides default) |
+| `ADO_ICM_TAGS` | No | Tags that map to the `icm` category (overrides default) |
+| `ADO_ROLLOUT_TAGS` | No | Tags that map to the `rollout` category (overrides default) |
+| `ADO_MONITORING_TAGS` | No | Tags that map to the `monitoring` category (default: `Monitoring,dev-test-ci,pipeline-monitoring`) |
+| `ADO_SUPPORT_TAGS` | No | Tags that map to the `support` category (overrides default) |
+| `ADO_RISK_TAGS` | No | Tags that map to the `risk` category (default: `risk,blocker`) |
+| `ADO_MILESTONE_TAGS` | No | Tags that map to the `milestone` category (overrides default) |
+
+**LLM**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
 | `LLM_API_KEY` | Yes* | OpenAI / Azure OpenAI API key (*not required for Ollama) |
 | `LLM_PROVIDER` | No | `openai`, `azure-openai`, or `ollama` (default: `openai`) |
 | `LLM_ENDPOINT` | No | LLM API endpoint (required for `azure-openai` and `ollama`, e.g. `http://localhost:11434/v1`) |
 | `LLM_MODEL` | No | Model name (default: `gpt-4o`) |
+| `LLM_API_VERSION` | No | Azure OpenAI API version (e.g. `2024-12-01-preview`; required for `azure-openai`) |
+
+**Reporting Period**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `REPORT_START_DATE` | Yes | Period start (YYYY-MM-DD) |
+| `REPORT_END_DATE` | Yes | Period end (YYYY-MM-DD) |
+
+**Report Metadata**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
 | `TEAM_NAME` | No | Team name for report header |
 | `CLIENT_NAME` | No | Client name for report header |
 | `PREPARED_BY` | No | Author name |
-| `REPORT_START_DATE` | Yes | Period start (YYYY-MM-DD) |
-| `REPORT_END_DATE` | Yes | Period end (YYYY-MM-DD) |
 | `TEMPLATE_PATH` | No | Path to report template |
 | `OUTPUT_PATH` | No | Output file path (default: `./output/report.md`) |
 | `VERBOSE` | No | Enable verbose logging (`true`/`false`) |
 | `ENABLE_COMPARISON` | No | Enable month-over-month comparison (`true`/`false`, default: `false`) |
 | `VISION_ENABLED` | No | Attach work item images to LLM calls (`true`/`false`) |
+
+**Section Titles**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
 | `SECTION_KEY_METRICS` | No | Custom title for Key Metrics section |
 | `SECTION_S360` | No | Custom title for S360 Status section |
 | `SECTION_RELEASES` | No | Custom title for Releases section |
@@ -270,6 +319,11 @@ All configuration is via environment variables (loaded from `.env`):
 | `SECTION_SUPPORT` | No | Custom title for Support subsection |
 | `SECTION_COMPARISON` | No | Custom title for Comparison section |
 | `SECTION_TREND_ANALYSIS` | No | Custom title for Trend Analysis section |
+
+**Performance**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
 | `CACHE_DIR` | No | ADO cache directory (default: `.cache`) |
 | `CACHE_TTL_MINUTES` | No | Cache TTL in minutes, `0` to disable (default: `60`) |
 | `CONCURRENCY` | No | Max concurrent ADO API requests (default: `10`) |
