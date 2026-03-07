@@ -42,6 +42,7 @@ import type OpenAI from "openai";
 import type { AzureOpenAI } from "openai";
 import type {
   ReportConfig,
+  CategoryTagMap,
   CategorizedReportData,
   ADOWorkItem,
 } from "./types.js";
@@ -621,22 +622,48 @@ function handleChangeConfig(
   }
 
   const configKey = key as keyof ReportConfig;
-  if (configKey in session.config) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (session.config as any)[configKey] = value;
-
-    // Clear cache when dates change
-    if (configKey === "reportStartDate" || configKey === "reportEndDate") {
-      session.cachedPeriods.clear();
-      console.log(`\n  ✅ ${key} = "${value}" (cache cleared)\n`);
-    } else {
-      console.log(`\n  ✅ ${key} = "${value}"\n`);
-    }
-  } else {
+  if (!(configKey in session.config)) {
     console.log(`\n  ⚠️  Unknown config key: ${key}`);
     console.log(
-      `     Available: teamName, clientName, reportStartDate, reportEndDate, outputPath, llmModel\n`
+      `     Available: teamName, clientName, reportStartDate, reportEndDate, outputPath, llmModel, adoCategoryTags\n`
     );
+    return;
+  }
+
+  // adoCategoryTags requires a valid JSON object with string[] values
+  if (configKey === "adoCategoryTags") {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
+        throw new Error("must be a JSON object");
+      }
+      for (const [cat, tags] of Object.entries(parsed as Record<string, unknown>)) {
+        if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string")) {
+          throw new Error(`value for "${cat}" must be an array of strings`);
+        }
+      }
+      session.config.adoCategoryTags = parsed as CategoryTagMap;
+      console.log(`\n  ✅ adoCategoryTags updated (${Object.keys(parsed as object).length} categories)\n`);
+    } catch (err) {
+      console.log(`\n  ⚠️  Invalid adoCategoryTags: ${(err as Error).message}`);
+      console.log('     Expected JSON like: {"s360":["s360"],"icm":["icm","incident"]}\n');
+    }
+    return;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (session.config as any)[configKey] = value;
+
+  // Clear cache when dates change
+  if (configKey === "reportStartDate" || configKey === "reportEndDate") {
+    session.cachedPeriods.clear();
+    console.log(`\n  ✅ ${key} = "${value}" (cache cleared)\n`);
+  } else {
+    console.log(`\n  ✅ ${key} = "${value}"\n`);
   }
 }
 
@@ -654,7 +681,7 @@ function handleListTags(session: Session) {
   }
 
   console.log("\n  Override via env vars: ADO_CATEGORY_TAGS, ADO_S360_TAGS, ADO_ICM_TAGS, etc.");
-  console.log('  Or at runtime: "set adoCategoryTags to ..."\n');
+  console.log('  Or at runtime: set adoCategoryTags to {"s360":["s360"],"icm":["icm"]}\n');
 }
 
 function showHelp() {
