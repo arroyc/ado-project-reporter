@@ -32,7 +32,7 @@ const SAMPLE_ITEMS: ADOWorkItem[] = [
     comments: [],
     imageUrls: [],
   },
-] as any;
+];
 
 beforeEach(() => {
   rmSync(TEST_CACHE_DIR, { recursive: true, force: true });
@@ -63,7 +63,7 @@ describe("cache", () => {
   it("returns undefined for expired entries", () => {
     cacheSet(PARAMS, SAMPLE_ITEMS, TEST_CACHE_DIR);
     // Manually backdate the timestamp
-    const files = require("node:fs").readdirSync(TEST_CACHE_DIR);
+    const files = readdirSync(TEST_CACHE_DIR);
     const filePath = join(TEST_CACHE_DIR, files[0]);
     const entry = JSON.parse(readFileSync(filePath, "utf-8"));
     entry.timestamp = Date.now() - 120 * 60_000; // 2 hours ago
@@ -82,7 +82,7 @@ describe("cache", () => {
   it("evicts expired entries", () => {
     cacheSet(PARAMS, SAMPLE_ITEMS, TEST_CACHE_DIR);
     // Backdate the file
-    const files = require("node:fs").readdirSync(TEST_CACHE_DIR);
+    const files = readdirSync(TEST_CACHE_DIR);
     const filePath = join(TEST_CACHE_DIR, files[0]);
     const entry = JSON.parse(readFileSync(filePath, "utf-8"));
     entry.timestamp = Date.now() - 120 * 60_000;
