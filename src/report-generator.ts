@@ -5,6 +5,7 @@
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
+import { getPackageVersion } from "./version.js";
 import { getAllWorkItems } from "./ado-client.js";
 import {
   categorizeWorkItems,
@@ -208,7 +209,7 @@ export async function generateReport(config: ReportConfig): Promise<string> {
     dataSource: "Azure DevOps",
     generatedTimestamp: now.toISOString(),
     generatedBy: "Project Status Report Agent",
-    version: "1.0.0",
+    version: getPackageVersion(),
 
     // Comparison
     comparisonAnalysis: refined.comparisonSummary.analysis,
@@ -232,6 +233,8 @@ export async function generateReport(config: ReportConfig): Promise<string> {
 
   return outputPath;
 }
+
+
 
 /**
  * Append month and year to the output filename.

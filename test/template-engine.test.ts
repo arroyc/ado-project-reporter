@@ -193,4 +193,29 @@ describe("populateTemplate", () => {
     const leftover = result.match(/\{\{[^}]+\}\}/g) ?? [];
     expect(leftover).toHaveLength(0);
   });
+
+  it("renumbers section headings when conditional block removes a section", () => {
+    const template = [
+      "## 1. Intro",
+      "Intro text",
+      "## 2. Details",
+      "Details text",
+      "{{#if enableComparison}}",
+      "## 3. Comparison",
+      "Comparison text",
+      "{{/if enableComparison}}",
+      "## 4. Challenges",
+      "Challenges text",
+      "## 5. Next Steps",
+      "Next steps text",
+    ].join("\n");
+
+    const sections = makeMinimalSections({ enableComparison: false });
+    const result = populateTemplate(template, sections);
+    expect(result).toContain("## 1. Intro");
+    expect(result).toContain("## 2. Details");
+    expect(result).not.toContain("Comparison");
+    expect(result).toContain("## 3. Challenges");
+    expect(result).toContain("## 4. Next Steps");
+  });
 });

@@ -1,36 +1,29 @@
-name: CI — Pull Request
+name: CI — Main Branch (Official)
+
+# Runs after every merge to main — the official quality gate for the main branch.
+# Unlike ci.yml (which is path-filtered for PRs), this runs unconditionally on
+# every push to main to ensure the branch is always in a healthy state.
 
 on:
-  pull_request:
+  push:
     branches: [main]
-    paths:
-      - "src/**"
-      - "test/**"
-      - "package.json"
-      - "tsconfig.json"
-      - "template_report.md"
-      - ".eslintrc*"
-      - "eslint.config.*"
 
 permissions:
   contents: read
 
 jobs:
-  quality-gate:
-    name: Build, Lint & Test
+  build-and-test:
+    name: Build, Lint, Test & Coverage
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20, 22, 24]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24
 
       - name: Install dependencies
         run: npm install
@@ -41,24 +34,23 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit
 
-      - name: Test
-        run: npm test
+      - name: Build
+        run: npm run build
 
       - name: Test with coverage
         run: npm run test:coverage
 
       - name: Upload coverage report
-        if: matrix.node-version == 24
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-main
           path: coverage/
-          retention-days: 14
+          retention-days: 30
 
       - name: Coverage summary
-        if: matrix.node-version == 24
         run: |
-          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Coverage Summary (main)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f coverage/coverage-summary.json ]; then
             node -e "
               const c = require('./coverage/coverage-summary.json').total;
@@ -72,14 +64,11 @@ jobs:
             " >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Build
-        run: npm run build
-
       - name: Verify package contents
         run: npm pack --dry-run
 
   security:
-    name: Security & Vulnerability Scan
+    name: Security Scan
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -97,12 +86,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: npm audit — known vulnerabilities
+      - name: npm audit
         run: npm audit --omit=dev --audit-level=high
-
-      - name: Check for outdated dependencies
-        run: npm outdated || true
-        continue-on-error: true
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -118,20 +103,57 @@ jobs:
         with:
           category: "/language:javascript-typescript"
 
-  dependency-review:
-    name: Dependency Review
+  compatibility:
+    name: Node.js Compatibility
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: write
+    strategy:
+      matrix:
+        node-version: [20, 22, 24]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          fail-on-severity: high
-          comment-summary-in-pr: always
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  e2e:
+    name: E2E & Performance Tests
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Run E2E & Performance tests
+        run: npm run test:e2e
+
+      - name: E2E summary
+        if: always()
+        run: |
+          echo "## 🧪 E2E & Performance Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Ran end-to-end pipeline and performance/load tests against the built project." >> $GITHUB_STEP_SUMMARY

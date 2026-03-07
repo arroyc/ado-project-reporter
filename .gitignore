@@ -3,7 +3,9 @@ output/
 package-lock.json
 .env
 .env.ollama
+.env.ollama.backup
 .env.azure-openai
 node_modules
 *.tgz
 .cache/
+coverage/
