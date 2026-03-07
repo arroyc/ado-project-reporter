@@ -126,7 +126,13 @@ export function cacheEvictExpired(
         evicted++;
       }
     } catch {
-      /* ignore */
+      // If the cache entry cannot be read or parsed, treat it as invalid and delete it
+      try {
+        unlinkSync(filePath);
+        evicted++;
+      } catch {
+        // Ignore secondary errors during cleanup (e.g., file already deleted)
+      }
     }
   }
   return evicted;
