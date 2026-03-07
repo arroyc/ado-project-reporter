@@ -1,0 +1,68 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (must match package.json, e.g. 1.0.2)"
+        required: true
+        type: string
+      dry-run:
+        description: "Dry run — validate without publishing"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish Package
+    runs-on: ubuntu-latest
+    environment: npm-publish
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate version matches package.json
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "${{ inputs.version }}" ]; then
+            echo "::error::Input version (${{ inputs.version }}) does not match package.json ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version $PKG_VERSION confirmed"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Dry run — verify package
+        if: inputs.dry-run
+        run: npm pack --dry-run
+
+      - name: Publish
+        if: ${{ !inputs.dry-run }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

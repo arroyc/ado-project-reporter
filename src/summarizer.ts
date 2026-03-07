@@ -94,6 +94,7 @@ async function llmCall(
     model,
     messages: [
       { role: "system", content: systemPrompt },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { role: "user", content: userContent as any },
     ],
     response_format: { type: "json_object" },
