@@ -79,12 +79,6 @@ export function cacheGet(
 
     return entry.items;
   } catch {
-    // On read/parse error, remove the corrupt cache file so future calls can succeed.
-    try {
-      unlinkSync(filePath);
-    } catch {
-      /* ignore unlink errors */
-    }
     return undefined;
   }
 }
@@ -126,13 +120,7 @@ export function cacheEvictExpired(
         evicted++;
       }
     } catch {
-      // If the cache entry cannot be read or parsed, treat it as invalid and delete it
-      try {
-        unlinkSync(filePath);
-        evicted++;
-      } catch {
-        // Ignore secondary errors during cleanup (e.g., file already deleted)
-      }
+      /* ignore */
     }
   }
   return evicted;
