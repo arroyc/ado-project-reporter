@@ -274,12 +274,17 @@ export async function fetchWorkItemComments(
 
 /**
  * Run async tasks with a concurrency limit (simple promise pool).
+ * Concurrency is clamped to at least 1 to prevent silent no-op when the
+ * value is 0, negative, or NaN (e.g. from a misconfigured env var).
  */
 async function parallelMap<T, R>(
   items: T[],
   fn: (item: T, index: number) => Promise<R>,
   concurrency: number
 ): Promise<R[]> {
+  if (items.length === 0) return [];
+
+  const safeConcurrency = Math.max(1, Math.min(items.length, Number.isFinite(concurrency) ? concurrency : 1));
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
 
@@ -291,7 +296,7 @@ async function parallelMap<T, R>(
   }
 
   const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
+    { length: safeConcurrency },
     () => worker()
   );
   await Promise.all(workers);
