@@ -3,9 +3,10 @@
  *
  * Pipeline: loadConfig → getAllWorkItems → categorize → summarize → populate template → write
  */
-import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getPackageVersion } from "./version.js";
 import { getAllWorkItems } from "./ado-client.js";
 import {
   categorizeWorkItems,
@@ -234,17 +235,7 @@ export async function generateReport(config: ReportConfig): Promise<string> {
   return outputPath;
 }
 
-/** Read the package version from the nearest package.json. */
-function getPackageVersion(): string {
-  try {
-    const thisDir = dirname(fileURLToPath(import.meta.url));
-    const pkgPath = join(thisDir, "..", "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
-    return pkg.version ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
+
 
 /**
  * Append month and year to the output filename.

@@ -10,6 +10,7 @@ tsconfig.json
 
 # Output & build artifacts
 output/
+coverage/
 node_modules/
 
 # Editor & OS

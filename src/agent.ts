@@ -34,9 +34,10 @@ import {
 } from "./summarizer.js";
 import { refineAllSections } from "./refiner.js";
 import { populateTemplate } from "./template-engine.js";
-import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getPackageVersion } from "./version.js";
 import type OpenAI from "openai";
 import type { AzureOpenAI } from "openai";
 import type {
@@ -707,17 +708,7 @@ function showHelp() {
 // Main agent loop
 // ---------------------------------------------------------------------------
 
-/** Read the package version from the nearest package.json. */
-function getPackageVersion(): string {
-  try {
-    const thisDir = dirname(fileURLToPath(import.meta.url));
-    const pkgPath = join(thisDir, "..", "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
-    return pkg.version ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
+
 
 /**
  * Append month and year to the output filename.
