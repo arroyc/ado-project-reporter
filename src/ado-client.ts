@@ -13,9 +13,6 @@ import { extractImageUrls } from "./extractor.js";
 import { cacheGet, cacheSet, type CacheKeyParams } from "./cache.js";
 import type { ReportConfig, ADOWorkItem, WorkItemComment } from "./types.js";
 
-/** Default number of concurrent comment-fetch requests. */
-const DEFAULT_CONCURRENCY = 10;
-
 /** Fields to fetch for each work item. */
 const WORK_ITEM_FIELDS = [
   "System.Id",
