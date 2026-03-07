@@ -1,4 +1,4 @@
-# Monthly Report: {{Team_Name}}
+# Project Report: {{Team_Name}}
 
 **Client:** {{Client_Name}}
 **Reporting Period:** {{Start_Date}} - {{End_Date}}
