@@ -1,5 +1,5 @@
 {
-  "name": "project-status-report-agent",
+  "name": "@arroyc/project-status-report-agent",
   "version": "1.1.0",
   "description": "AI-powered Project Status Report Agent — fetches Azure DevOps data, generates LLM-summarized reports",
   "type": "module",
