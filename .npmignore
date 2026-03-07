@@ -3,7 +3,8 @@ src/
 test/
 tsconfig.json
 .env
-.env.example
+.env.ollama
+.env.azure-openai
 .gitignore
 
 # Output & build artifacts

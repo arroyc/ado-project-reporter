@@ -32,6 +32,10 @@ export type {
 const args = process.argv.slice(2);
 const isStatic = args.includes("--static") || args.includes("-s");
 
+if (args.includes("--clear") || args.includes("-c")) {
+  console.clear();
+}
+
 if (isStatic) {
   console.log("🚀 Running in static (one-shot) mode...\n");
   const config = loadConfig();

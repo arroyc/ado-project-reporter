@@ -46,13 +46,22 @@ export function populateTemplate(
     Sev1_Count: String(sections.icmMetrics.sev1),
     Sev2_Count: String(sections.icmMetrics.sev2),
     Sev3_Count: String(sections.icmMetrics.sev3),
-    Hotfix_Count: String(sections.icmMetrics.hotfixes),
+    Hotfix_Count: String(sections.hotfixDeployments),
     ICM_Notes: sections.icmMetrics.notes,
     Timestamp: sections.generatedTimestamp,
     Automation_Workflow_Name: sections.generatedBy,
     Version_Number: sections.version,
     Comparison_Analysis:
       sections.comparisonAnalysis ?? "No comparison data available.",
+    Section_Key_Metrics: sections.sectionTitles.keyMetrics,
+    Section_S360_Status: sections.sectionTitles.s360Status,
+    Section_Releases: sections.sectionTitles.releases,
+    Section_ICM_OnCall: sections.sectionTitles.icmOnCall,
+    Section_Monitoring_Support: sections.sectionTitles.monitoringSupport,
+    Section_Monitoring: sections.sectionTitles.monitoring,
+    Section_Support: sections.sectionTitles.support,
+    Section_Comparison: sections.sectionTitles.comparison,
+    Section_Trend_Analysis: sections.sectionTitles.trendAnalysis,
   };
 
   for (const [key, value] of Object.entries(scalars)) {
@@ -81,6 +90,13 @@ export function populateTemplate(
   content = expandUpcomingTasksTable(content, sections.upcomingTasks);
   content = expandComparisonTable(content, sections.comparisonTable ?? []);
 
+  // ── Conditional blocks ───────────────────────────────────────────────
+  content = processConditionalBlocks(content, {
+    enableComparison: sections.enableComparison,
+    hasIcmData: sections.hasIcmData,
+    noIcmData: !sections.hasIcmData,
+  });
+
   // ── Final cleanup: remove any remaining {{…}} placeholder lines ──────
   content = content
     .split("\n")
@@ -90,6 +106,28 @@ export function populateTemplate(
   // Also strip any inline leftover placeholders
   content = content.replace(/\{\{[^}]+\}\}/g, "");
 
+  return content;
+}
+
+// ---------------------------------------------------------------------------
+// Conditional blocks
+// ---------------------------------------------------------------------------
+
+/**
+ * Process {{#if <flag>}}...{{/if <flag>}} blocks.
+ * When the flag is truthy the block content is kept; when falsy the block is removed.
+ */
+function processConditionalBlocks(
+  content: string,
+  flags: Record<string, boolean>
+): string {
+  for (const [flag, value] of Object.entries(flags)) {
+    const regex = new RegExp(
+      `\\{\\{#if ${flag}\\}\\}\n?([\\s\\S]*?)\\{\\{/if ${flag}\\}\\}`,
+      "g"
+    );
+    content = content.replace(regex, value ? "$1" : "");
+  }
   return content;
 }
 

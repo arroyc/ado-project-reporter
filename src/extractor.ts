@@ -21,6 +21,20 @@ const DEFAULT_CATEGORY_TAGS: CategoryTagMap = {
 };
 
 /**
+ * Maps well-known category names to the legacy CategorizedReportData field
+ * that holds the items for that category. Ensures backward compatibility.
+ */
+const KNOWN_CATEGORY_FIELDS: Record<string, keyof CategorizedReportData> = {
+  s360: "s360Items",
+  icm: "icmItems",
+  rollout: "rolloutItems",
+  monitoring: "monitoringItems",
+  support: "supportItems",
+  risk: "risks",
+  milestone: "milestones",
+};
+
+/**
  * Check if an item's tags match any of the category tags (case-insensitive).
  */
 function matchesAnyTag(lowerTags: string[], categoryTags: string[]): boolean {
@@ -53,26 +67,29 @@ export function categorizeWorkItems(
     monitoringItems: [],
     supportItems: [],
     allItems: [...items],
+    categoryItems: {},
   };
+
+  // Initialize dynamic category buckets
+  for (const cat of Object.keys(categoryTags)) {
+    result.categoryItems[cat] = [];
+  }
 
   for (const item of items) {
     const lowerTags = item.tags.map((t) => t.toLowerCase());
 
-    // Tag-based categorization (each category matches multiple tags via OR)
-    if (matchesAnyTag(lowerTags, categoryTags.s360))
-      result.s360Items.push(item);
-    if (matchesAnyTag(lowerTags, categoryTags.icm))
-      result.icmItems.push(item);
-    if (matchesAnyTag(lowerTags, categoryTags.rollout))
-      result.rolloutItems.push(item);
-    if (matchesAnyTag(lowerTags, categoryTags.monitoring))
-      result.monitoringItems.push(item);
-    if (matchesAnyTag(lowerTags, categoryTags.support))
-      result.supportItems.push(item);
-    if (matchesAnyTag(lowerTags, categoryTags.milestone))
-      result.milestones.push(item);
-    if (matchesAnyTag(lowerTags, categoryTags.risk))
-      result.risks.push(item);
+    // Dynamic tag-based categorization
+    for (const [cat, tags] of Object.entries(categoryTags)) {
+      if (matchesAnyTag(lowerTags, tags)) {
+        result.categoryItems[cat].push(item);
+
+        // Also populate the known legacy field if this is a well-known category
+        const field = KNOWN_CATEGORY_FIELDS[cat];
+        if (field) {
+          (result[field] as ADOWorkItem[]).push(item);
+        }
+      }
+    }
 
     // Type-based
     if (item.type.toLowerCase() === "bug") result.bugs.push(item);

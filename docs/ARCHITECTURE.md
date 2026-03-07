@@ -10,12 +10,12 @@ The Project Status Report Agent is a TypeScript/Node.js application that fetches
 ┌──────────┐    ┌───────────┐    ┌────────────┐    ┌────────────┐    ┌──────────┐    ┌──────────┐
 │  Config   │───▶│ ADO Client │───▶│  Extractor  │───▶│ Summarizer │───▶│  Refiner  │───▶│ Template │
 │ (.env)    │    │  (WIQL)    │    │ (categorize)│    │   (LLM)    │    │  (LLM)    │    │  Engine  │
-└──────────┘    └───────────┘    └────────────┘    └────────────┘    └──────────┘    └──────────┘
-                                                          │
-                                                   ┌──────┴──────┐
-                                                   │ Vision Layer │
-                                                   │ (base64 img) │
-                                                   └─────────────┘
+└──────────┘    └─────┬─────┘    └────────────┘    └─────┬──────┘    └──────────┘    └──────────┘
+                    │                         │
+              ┌─────┴─────┐             ┌─────┴─────┐
+              │ Disk Cache │             │  Vision   │
+              │ (.cache/)  │             │ (optional)│
+              └───────────┘             └───────────┘
 ```
 
 **Static mode:** `index.ts` → `report-generator.ts` runs the pipeline end-to-end and writes a `.md` file.
@@ -56,6 +56,11 @@ The Project Status Report Agent is a TypeScript/Node.js application that fetches
 | `VISION_ENABLED` | `"true"` to attach work item screenshots to LLM calls |
 | `TEAM_NAME`, `CLIENT_NAME`, `PREPARED_BY` | Report metadata |
 | `OUTPUT_PATH`, `TEMPLATE_PATH` | File paths |
+| `ENABLE_COMPARISON` | `"true"` to enable month-over-month comparison (default: `false`) |
+| `SECTION_*` | Customizable report section titles (e.g., `SECTION_KEY_METRICS`, `SECTION_S360`, `SECTION_RELEASES`, `SECTION_ICM`, `SECTION_MONITORING_SUPPORT`, `SECTION_MONITORING`, `SECTION_SUPPORT`, `SECTION_COMPARISON`, `SECTION_TREND_ANALYSIS`) |
+| `CACHE_DIR` | File-based ADO cache directory (default: `.cache`) |
+| `CACHE_TTL_MINUTES` | Cache TTL in minutes; `0` disables caching (default: `60`) |
+| `CONCURRENCY` | Max concurrent ADO API requests for comment fetching (default: `10`) |
 
 ### `src/types.ts` — Type Definitions
 
@@ -63,18 +68,24 @@ Central type file. Key interfaces:
 
 | Type | Purpose |
 |------|---------|
-| `ReportConfig` | Full configuration shape (all env vars) |
+| `ReportConfig` | Full configuration shape (all env vars, including performance + section titles) |
 | `CategoryTagMap` | Maps report categories → ADO tag arrays (OR logic) |
 | `ADOWorkItem` | Work item with extracted fields, comments, and image URLs |
 | `WorkItemComment` | Discussion comment with image URLs |
 | `CategorizedReportData` | Work items bucketed by state, type, and tag-based category |
-| `ReportSections` | Final report data — maps 1:1 to template placeholders |
+| `ReportSections` | Final report data — maps 1:1 to template placeholders. Includes `hasIcmData`, `hotfixDeployments`, `enableComparison`, and `sectionTitles` |
+| `SectionTitles` | Configurable section header strings (keyMetrics, s360Status, releases, icmOnCall, etc.) |
 | `PeriodMetrics` / `PeriodComparison` / `PeriodDelta` | Month-over-month comparison data |
 | `ProgressRow`, `ICMMetrics`, `UpcomingTask`, `ComparisonTableRow` | Table row shapes |
 
 ### `src/ado-client.ts` — Azure DevOps Client
 
 Handles all ADO API communication using `azure-devops-node-api`.
+
+**Performance features:**
+
+- **Disk cache** — Before querying ADO, checks the file-based cache (`.cache/`). Cache key is a SHA-256 hash of query parameters (org, project, dates, tags, types, states, members, area path). On hit, returns items immediately without any API call. Cache entries expire based on `CACHE_TTL_MINUTES` (default: 60). Set to `0` to disable.
+- **Concurrent comment fetching** — Uses a promise pool (`parallelMap`) with configurable concurrency (default: 10). For 166 work items, this is ~10x faster than sequential fetching. Progress is logged every 20 items when verbose.
 
 **WIQL Query Construction:**
 
@@ -99,8 +110,22 @@ ORDER BY [System.ChangedDate] DESC
 1. `queryWorkItems()` — executes WIQL, returns work item IDs
 2. `fetchWorkItemDetails()` — batch-fetches fields (200 per batch), extracts image URLs from descriptions
 3. `fetchWorkItemComments()` — fetches discussion comments per item, extracts image URLs
-4. `getAllWorkItems()` — orchestrates the above three steps
-5. `getAllWorkItemsByCategory()` — same, but with category tag filter
+4. `fetchAllComments()` — runs `fetchWorkItemComments()` concurrently with a configurable pool size
+5. `getAllWorkItems()` — orchestrates: cache check → WIQL query → batch fetch → concurrent comments → cache write
+6. `getAllWorkItemsByCategory()` — same, but with category tag filter
+
+### `src/cache.ts` — File-Based Disk Cache
+
+Lightweight file-based cache with zero external dependencies (no Redis required).
+
+| Function | Purpose |
+|----------|--------|
+| `computeCacheKey(params)` | SHA-256 hash (truncated to 16 chars) of query parameters → deterministic cache filename |
+| `cacheGet(params, dir, ttl)` | Read cached items from `{dir}/{key}.json`. Returns `undefined` on miss, expiry (`ttl` exceeded), or `ttl=0` (disabled). Deletes stale files on expiry. |
+| `cacheSet(params, items, dir)` | Write items to `{dir}/{key}.json` with `{ timestamp, items }` envelope |
+| `cacheEvictExpired(dir, ttl)` | Scan cache directory and delete all entries older than `ttl` minutes. Returns count of evicted files. |
+
+**Cache key includes:** `orgUrl`, `project`, `startDate`, `endDate`, `requiredTags`, `workItemTypes`, `states`, `teamMembers`, `areaPath`, `categoryTags`. Any change in these parameters produces a different cache file.
 
 **Team member filtering:** The `ADO_TEAM_MEMBERS` env var feeds `config.adoTeamMembers` → `buildAssignedToClause()` which produces `AND ( [System.AssignedTo] = 'Name' OR ... )`. If empty, no filter is applied (all assignees returned).
 
@@ -150,7 +175,7 @@ When `visionEnabled` is true:
 |----------|--------|--------|
 | `summarizeExecutive()` | `{ executiveSummary, breakthroughs[], milestones[] }` | All items |
 | `summarizeProgress()` | `ProgressRow[]` | Completed + in-progress + bugs |
-| `summarizeMetrics()` | `{ s360Completed[], s360InProgress[], icmMetrics, releasesUpdate }` | S360 + ICM + rollout items |
+| `summarizeMetrics()` | `{ s360Completed[], s360InProgress[], icmMetrics, releasesUpdate, hotfixDeployments }` | S360 + ICM + rollout items |
 | `summarizeChallenges()` | `{ challenges[], mitigations[] }` | Risks + bugs |
 | `summarizeNextSteps()` | `UpcomingTask[]` | In-progress + new items |
 | `summarizeClientActions()` | `string[]` | Completed + in-progress items |
@@ -178,8 +203,19 @@ Populates a Markdown template (`template_report.md`) with report data.
 | Type | Pattern | Example |
 |------|---------|---------|
 | Scalar | `{{Key_Name}}` | `{{Team_Name}}`, `{{Executive_Summary_Text}}` |
+| Section title | `{{Section_*}}` | `{{Section_Key_Metrics}}`, `{{Section_Releases}}` |
 | Numbered bullets | `- {{Prefix_N}}` | `- {{Breakthrough_1}}`, `- {{Milestone_2}}` |
 | Table rows | Template rows with `{{Column}}` | Progress table, comparison table |
+| Conditional blocks | `{{#if flag}}...{{/if flag}}` | `{{#if enableComparison}}...{{/if enableComparison}}` |
+
+**Conditional blocks** allow sections to be included or excluded based on boolean flags:
+- `enableComparison` — controls the month-over-month comparison section
+- `hasIcmData` / `noIcmData` — controls ICM detail display vs. "No ICMs reported" fallback
+
+**Report structure changes:**
+- Hotfix deployments are reported under the **Releases** section (not ICM)
+- When no ICM-tagged work items exist, the ICM section shows "No ICMs reported for this period" instead of zeros
+- All section headers use configurable `{{Section_*}}` placeholders mapped from `SECTION_*` env vars
 
 The engine expands or contracts dynamic lists/tables to match actual data length. Leftover `{{...}}` placeholders are stripped in a final cleanup pass.
 
@@ -202,6 +238,7 @@ Action Dispatcher
     ├── show_metrics     → category deep dive
     ├── refine_section   → re-run refiner on cached data
     ├── change_config    → runtime config override
+    ├── clear / clr / cls → clear terminal screen (no LLM call)
     ├── help             → print available commands
     └── exit             → quit
 ```
@@ -214,15 +251,17 @@ Action Dispatcher
 
 ### `src/report-generator.ts` — Pipeline Orchestrator
 
-Runs the 7-step static generation pipeline:
+Runs the full static generation pipeline:
 
-1. **Fetch** — `getAllWorkItems()` for current + previous month
-2. **Categorize** — `categorizeWorkItems()` for both periods
-3. **Compare** — `computePeriodMetrics()` + `comparePeriods()` for month-over-month deltas
-4. **Summarize** — 8 parallel `summarize*()` calls via `Promise.all`
+1. **Fetch** — `getAllWorkItems()` for current period (cache-aware, concurrent comments)
+2. **Categorize** — `categorizeWorkItems()` for current period
+3. **Compare** (optional, when `ENABLE_COMPARISON=true`) — Fetch previous month → `computePeriodMetrics()` + `comparePeriods()`
+4. **Summarize** — 7 parallel `summarize*()` calls via `Promise.all` (+ comparison if enabled)
 5. **Refine** — `refineAllSections()` second-pass polish
-6. **Populate** — `populateTemplate()` fills the Markdown template
+6. **Populate** — `populateTemplate()` fills the Markdown template (with conditional blocks and section titles)
 7. **Write** — Output to `{outputPath}` with month-year suffix
+
+When `ENABLE_COMPARISON=false` (default), steps 3 and the comparison summarize call are skipped, reducing to a 5-step pipeline.
 
 ## Data Flow
 

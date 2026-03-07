@@ -40,7 +40,11 @@ beforeEach(() => {
   delete process.env.LLM_API_VERSION;
   delete process.env.OUTPUT_PATH;
   delete process.env.TEMPLATE_PATH;
-  delete process.env.VERBOSE;    delete process.env.VISION_ENABLED;});
+  delete process.env.VERBOSE;    delete process.env.VISION_ENABLED;
+  delete process.env.CACHE_DIR;
+  delete process.env.CACHE_TTL_MINUTES;
+  delete process.env.CONCURRENCY;
+});
 
 afterEach(() => {
   process.env = envBackup;
@@ -131,5 +135,27 @@ describe("loadConfig", () => {
     Object.assign(process.env, REQUIRED_ENV);
     const config = loadConfig();
     expect(config.adoTeam).toBeUndefined();
+  });
+
+  // Performance config defaults
+  it("defaults cache and concurrency settings", () => {
+    Object.assign(process.env, REQUIRED_ENV);
+    const config = loadConfig();
+    expect(config.cacheDir).toBe(".cache");
+    expect(config.cacheTtlMinutes).toBe(60);
+    expect(config.concurrency).toBe(10);
+  });
+
+  it("reads CACHE_DIR, CACHE_TTL_MINUTES, and CONCURRENCY from env", () => {
+    Object.assign(process.env, {
+      ...REQUIRED_ENV,
+      CACHE_DIR: ".my-cache",
+      CACHE_TTL_MINUTES: "120",
+      CONCURRENCY: "20",
+    });
+    const config = loadConfig();
+    expect(config.cacheDir).toBe(".my-cache");
+    expect(config.cacheTtlMinutes).toBe(120);
+    expect(config.concurrency).toBe(20);
   });
 });

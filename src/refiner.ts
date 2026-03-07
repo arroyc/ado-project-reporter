@@ -28,6 +28,7 @@ interface RawSections {
     s360InProgress: string[];
     icmMetrics: ICMMetrics;
     releasesUpdate: string;
+    hotfixDeployments: number;
   };
   challenges: {
     challenges: string[];
@@ -57,6 +58,7 @@ export interface RefinedSections {
     s360InProgress: string[];
     icmMetrics: ICMMetrics;
     releasesUpdate: string;
+    hotfixDeployments: number;
   };
   challenges: {
     challenges: string[];
@@ -124,8 +126,9 @@ Respond ONLY with JSON (same schema as input):
 {
   "s360Completed": ["...", "..."],
   "s360InProgress": ["...", "..."],
-  "icmMetrics": { "totalResolved": 0, "sev1": 0, "sev2": 0, "sev3": 0, "hotfixes": 0, "notes": "..." },
-  "releasesUpdate": "..."
+  "icmMetrics": { "totalResolved": 0, "sev1": 0, "sev2": 0, "sev3": 0, "notes": "..." },
+  "releasesUpdate": "...",
+  "hotfixDeployments": 0
 }`;
 
 const REFINE_CHALLENGES_PROMPT = `You are a senior technical editor polishing the challenges & risks section of a project status report.
@@ -248,6 +251,7 @@ export async function refineAllSections(
       s360InProgress: p.s360InProgress ?? raw.metrics.s360InProgress,
       icmMetrics: p.icmMetrics ?? raw.metrics.icmMetrics,
       releasesUpdate: p.releasesUpdate ?? raw.metrics.releasesUpdate,
+      hotfixDeployments: p.hotfixDeployments ?? raw.metrics.hotfixDeployments,
     };
   } catch {
     /* keep original */

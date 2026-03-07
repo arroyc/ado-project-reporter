@@ -30,16 +30,60 @@ const DEFAULT_WORK_ITEM_TYPES = [
 /** Default terminal states matching the real ADO query pattern. */
 const DEFAULT_STATES = ["Closed", "Removed", "Resolved"];
 
-/** Default category tag mappings. Override via ADO_*_TAGS env vars. */
-const DEFAULT_CATEGORY_TAGS: CategoryTagMap = {
-  s360: ["s360"],
-  icm: ["icm"],
-  rollout: ["rollout"],
+/** Default 1:1 category tags (tag name = category name). */
+const DEFAULT_SIMPLE_TAGS = ["s360", "icm", "rollout", "support", "milestone"];
+
+/** Default multi-tag categories (tag name ≠ category name or has aliases). */
+const DEFAULT_MULTI_TAGS: Record<string, string[]> = {
   monitoring: ["Monitoring", "dev-test-ci", "pipeline-monitoring"],
-  support: ["support"],
   risk: ["risk", "blocker"],
-  milestone: ["milestone"],
 };
+
+/**
+ * Build the category → tags map by merging:
+ * 1. ADO_CATEGORY_TAGS — 1:1 tags (tag name = category name)
+ * 2. DEFAULT_MULTI_TAGS — multi-tag defaults for categories not covered above
+ * 3. ADO_*_TAGS env vars — explicit overrides (always win)
+ */
+function buildCategoryTags(): CategoryTagMap {
+  const simpleTags =
+    parseList(process.env.ADO_CATEGORY_TAGS).length > 0
+      ? parseList(process.env.ADO_CATEGORY_TAGS)
+      : DEFAULT_SIMPLE_TAGS;
+
+  const map: CategoryTagMap = {};
+
+  // 1:1 tags — each tag name doubles as the category name
+  for (const tag of simpleTags) {
+    map[tag] = [tag];
+  }
+
+  // Multi-tag defaults (only if not already set by simple tags)
+  for (const [cat, tags] of Object.entries(DEFAULT_MULTI_TAGS)) {
+    if (!map[cat]) {
+      map[cat] = tags;
+    }
+  }
+
+  // Explicit env var overrides always win
+  const overrides: Record<string, string | undefined> = {
+    s360: process.env.ADO_S360_TAGS,
+    icm: process.env.ADO_ICM_TAGS,
+    rollout: process.env.ADO_ROLLOUT_TAGS,
+    monitoring: process.env.ADO_MONITORING_TAGS,
+    support: process.env.ADO_SUPPORT_TAGS,
+    risk: process.env.ADO_RISK_TAGS,
+    milestone: process.env.ADO_MILESTONE_TAGS,
+  };
+  for (const [cat, envVal] of Object.entries(overrides)) {
+    const parsed = parseList(envVal);
+    if (parsed.length > 0) {
+      map[cat] = parsed;
+    }
+  }
+
+  return map;
+}
 
 /**
  * Load and validate report configuration from environment variables.
@@ -88,37 +132,9 @@ export function loadConfig(): ReportConfig {
         ? parseList(process.env.ADO_STATES)
         : DEFAULT_STATES,
 
-    // Per-category tag mappings (configurable via env, with sensible defaults)
-    adoCategoryTags: {
-      s360:
-        parseList(process.env.ADO_S360_TAGS).length > 0
-          ? parseList(process.env.ADO_S360_TAGS)
-          : DEFAULT_CATEGORY_TAGS.s360,
-      icm:
-        parseList(process.env.ADO_ICM_TAGS).length > 0
-          ? parseList(process.env.ADO_ICM_TAGS)
-          : DEFAULT_CATEGORY_TAGS.icm,
-      rollout:
-        parseList(process.env.ADO_ROLLOUT_TAGS).length > 0
-          ? parseList(process.env.ADO_ROLLOUT_TAGS)
-          : DEFAULT_CATEGORY_TAGS.rollout,
-      monitoring:
-        parseList(process.env.ADO_MONITORING_TAGS).length > 0
-          ? parseList(process.env.ADO_MONITORING_TAGS)
-          : DEFAULT_CATEGORY_TAGS.monitoring,
-      support:
-        parseList(process.env.ADO_SUPPORT_TAGS).length > 0
-          ? parseList(process.env.ADO_SUPPORT_TAGS)
-          : DEFAULT_CATEGORY_TAGS.support,
-      risk:
-        parseList(process.env.ADO_RISK_TAGS).length > 0
-          ? parseList(process.env.ADO_RISK_TAGS)
-          : DEFAULT_CATEGORY_TAGS.risk,
-      milestone:
-        parseList(process.env.ADO_MILESTONE_TAGS).length > 0
-          ? parseList(process.env.ADO_MILESTONE_TAGS)
-          : DEFAULT_CATEGORY_TAGS.milestone,
-    },
+    // Category tag mappings — 1:1 tags from ADO_CATEGORY_TAGS, multi-tag
+    // overrides from individual ADO_*_TAGS env vars.
+    adoCategoryTags: buildCategoryTags(),
 
     // Reporting period (required — month-based date range tracking)
     reportStartDate: process.env.REPORT_START_DATE!,
@@ -138,5 +154,22 @@ export function loadConfig(): ReportConfig {
     templatePath: process.env.TEMPLATE_PATH || "./template_report.md",
     verbose: process.env.VERBOSE === "true",
     visionEnabled: process.env.VISION_ENABLED === "true",
+    enableComparison: process.env.ENABLE_COMPARISON === "true",
+    sectionTitles: {
+      keyMetrics: process.env.SECTION_KEY_METRICS || "Key Metrics",
+      s360Status: process.env.SECTION_S360 || "S360 Status",
+      releases: process.env.SECTION_RELEASES || "Releases",
+      icmOnCall: process.env.SECTION_ICM || "ICM On-Call Activity",
+      monitoringSupport: process.env.SECTION_MONITORING_SUPPORT || "Monitoring & Support",
+      monitoring: process.env.SECTION_MONITORING || "Monitoring",
+      support: process.env.SECTION_SUPPORT || "Support",
+      comparison: process.env.SECTION_COMPARISON || "Month-over-Month Comparison",
+      trendAnalysis: process.env.SECTION_TREND_ANALYSIS || "Trend Analysis",
+    },
+
+    // Performance
+    cacheDir: process.env.CACHE_DIR || ".cache",
+    cacheTtlMinutes: parseInt(process.env.CACHE_TTL_MINUTES || "60", 10),
+    concurrency: parseInt(process.env.CONCURRENCY || "10", 10),
   };
 }

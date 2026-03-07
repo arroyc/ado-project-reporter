@@ -22,12 +22,13 @@ function makeMinimalSections(overrides: Partial<ReportSections> = {}): ReportSec
     s360Completed: [],
     s360InProgress: [],
     releasesUpdate: "",
+    hotfixDeployments: 0,
+    hasIcmData: false,
     icmMetrics: {
       totalResolved: 0,
       sev1: 0,
       sev2: 0,
       sev3: 0,
-      hotfixes: 0,
       notes: "",
     },
     monitoringUpdate: "",
@@ -40,6 +41,18 @@ function makeMinimalSections(overrides: Partial<ReportSections> = {}): ReportSec
     generatedTimestamp: "2026-03-01T12:00:00Z",
     generatedBy: "psr-agent",
     version: "0.1.0",
+    enableComparison: false,
+    sectionTitles: {
+      keyMetrics: "Key Metrics",
+      s360Status: "S360 Status",
+      releases: "Releases",
+      icmOnCall: "ICM On-Call Activity",
+      monitoringSupport: "Monitoring & Support",
+      monitoring: "Monitoring",
+      support: "Support",
+      comparison: "Month-over-Month Comparison",
+      trendAnalysis: "Trend Analysis",
+    },
     ...overrides,
   };
 }

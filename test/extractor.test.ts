@@ -197,6 +197,32 @@ describe("categorizeWorkItems", () => {
     expect(result.monitoringItems).toHaveLength(0);
     expect(result.supportItems).toHaveLength(0);
     expect(result.allItems).toHaveLength(0);
+    // categoryItems buckets should all be empty
+    for (const items of Object.values(result.categoryItems)) {
+      expect(items).toHaveLength(0);
+    }
+  });
+
+  it("populates categoryItems alongside legacy fields", () => {
+    const items = [makeWorkItem({ id: 300, tags: ["s360"] })];
+    const result = categorizeWorkItems(items);
+    expect(result.s360Items).toHaveLength(1);
+    expect(result.categoryItems.s360).toHaveLength(1);
+    expect(result.categoryItems.s360[0].id).toBe(300);
+  });
+
+  it("supports custom 1:1 categories via categoryItems", () => {
+    const customTags = { security: ["security"], compliance: ["compliance"] };
+    const items = [
+      makeWorkItem({ id: 400, tags: ["security"] }),
+      makeWorkItem({ id: 401, tags: ["compliance"] }),
+      makeWorkItem({ id: 402, tags: ["other"] }),
+    ];
+    const result = categorizeWorkItems(items, customTags);
+    expect(result.categoryItems.security).toHaveLength(1);
+    expect(result.categoryItems.security[0].id).toBe(400);
+    expect(result.categoryItems.compliance).toHaveLength(1);
+    expect(result.categoryItems.compliance[0].id).toBe(401);
   });
 
   it("always populates allItems with every input item", () => {

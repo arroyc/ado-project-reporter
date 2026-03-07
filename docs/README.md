@@ -2,7 +2,7 @@
 
 AI-powered agent that fetches Azure DevOps work items, generates LLM-summarized sections, and produces formatted project status reports.
 
-![Sample Report Output](docs/images/sample-output.png)
+![Sample Report Output](images/sample-output.png)
 
 ## Quick Start
 
@@ -78,14 +78,14 @@ docs/              Documentation
    npm install
    ```
 
-2. Copy `.env.azure-openai.example` to `.env` and fill in your credentials:
+2. Copy `.env.azure-openai.example` or `.env.ollama.example` to `.env` and fill in your credentials:
    ```
    ADO_ORG_URL=https://dev.azure.com/yourorg
    ADO_PAT=your-personal-access-token
    ADO_PROJECT=YourProject
-   LLM_PROVIDER=azure-openai
-   LLM_API_KEY=your-api-key
-   LLM_MODEL=gpt-4o
+   LLM_PROVIDER=<your llm>
+   LLM_API_KEY=<only needed for azure-openai>
+   LLM_MODEL=<your model>
    TEAM_NAME=YourTeam
    CLIENT_NAME=YourClient
    PREPARED_BY=YourName
@@ -182,7 +182,7 @@ node dist/index.js
 
 Interactive mode starts a conversational REPL with a `psr-agent>` prompt. The agent uses the configured LLM to parse your natural language input into structured intents, so you can issue commands conversationally. It maintains a session with cached ADO data to avoid re-fetching between commands.
 
-![Interactive Mode — help command](docs/images/interactive-mode.png)
+![Interactive Mode — help command](images/interactive-mode.png)
 
 **Available commands:**
 
@@ -273,7 +273,11 @@ All configuration is via environment variables (loaded from `.env`):
 | `CACHE_DIR` | No | ADO cache directory (default: `.cache`) |
 | `CACHE_TTL_MINUTES` | No | Cache TTL in minutes, `0` to disable (default: `60`) |
 | `CONCURRENCY` | No | Max concurrent ADO API requests (default: `10`) |
-| `ADO_CATEGORY_TAGS` | No | Mapping of report categories to ADO tags used for filtering work items. See `.env.*.example` for format and examples. |
-| `ADO_*_TAGS` | No | Tag filters for specific ADO work item types or sections (e.g., feature tags, risk tags). See `.env.*.example` for the full set. |
-| `ADO_TEAM_MEMBERS` | No | Mapping of ADO identities to display names/roles for reporting. See `.env.*.example` for details. |
-| `ADO_REQUIRED_TAGS` | No | Tags that work items must have to be included in reports. See `.env.*.example` for usage. |
+| `ADO_TEAM_MEMBERS` | No | Comma-separated list of team member identifiers used for grouping/ownership in reports |
+| `ADO_REQUIRED_TAGS` | No | Comma-separated list of tags that work items must have to be included in the report |
+| `ADO_WORK_ITEM_TYPES` | No | Comma-separated list of ADO work item types to fetch (e.g., `User Story,Bug,Task`) |
+| `ADO_STATES` | No | Comma-separated list of ADO states to include (e.g., `Active,Resolved,Closed`) |
+| `ADO_CATEGORY_TAGS` | No | Comma-separated list of category names used for grouping by tag (e.g., `Features,Incidents`) |
+| `ADO_*_TAGS` | No | Per-category tag mappings (e.g., `ADO_FEATURE_TAGS`, `ADO_INCIDENT_TAGS`) defining which tags belong to each category |
+
+For a complete and authoritative list of all supported environment variables (including advanced options and examples), see the `.env.*.example` files in the repository.
