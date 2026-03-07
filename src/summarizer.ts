@@ -94,7 +94,11 @@ async function llmCall(
     model,
     messages: [
       { role: "system", content: systemPrompt },
+<<<<<<< HEAD
       { role: "user", content: userContent as string | ChatContentPart[] },
+=======
+      { role: "user", content: userContent as any },
+>>>>>>> 4c03af2 (add caching, empty tagging support and update docs)
     ],
     response_format: { type: "json_object" },
     temperature: 0.3,

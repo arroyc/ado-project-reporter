@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+<<<<<<< HEAD
 import { rmSync, existsSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { cacheGet, cacheSet, cacheEvictExpired, type CacheKeyParams } from "../src/cache.js";
 import type { ADOWorkItem } from "../src/types.js";
+=======
+import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { cacheGet, cacheSet, cacheEvictExpired, type CacheKeyParams } from "../src/cache.js";
+>>>>>>> 4c03af2 (add caching, empty tagging support and update docs)
 
 const TEST_CACHE_DIR = ".test-cache";
 
@@ -17,7 +23,7 @@ const PARAMS: CacheKeyParams = {
   teamMembers: ["Alice", "Bob"],
 };
 
-const SAMPLE_ITEMS: ADOWorkItem[] = [
+const SAMPLE_ITEMS = [
   {
     id: 1,
     type: "Bug",
@@ -32,7 +38,7 @@ const SAMPLE_ITEMS: ADOWorkItem[] = [
     comments: [],
     imageUrls: [],
   },
-];
+] as any;
 
 beforeEach(() => {
   rmSync(TEST_CACHE_DIR, { recursive: true, force: true });
@@ -63,7 +69,7 @@ describe("cache", () => {
   it("returns undefined for expired entries", () => {
     cacheSet(PARAMS, SAMPLE_ITEMS, TEST_CACHE_DIR);
     // Manually backdate the timestamp
-    const files = readdirSync(TEST_CACHE_DIR);
+    const files = require("node:fs").readdirSync(TEST_CACHE_DIR);
     const filePath = join(TEST_CACHE_DIR, files[0]);
     const entry = JSON.parse(readFileSync(filePath, "utf-8"));
     entry.timestamp = Date.now() - 120 * 60_000; // 2 hours ago
@@ -82,7 +88,7 @@ describe("cache", () => {
   it("evicts expired entries", () => {
     cacheSet(PARAMS, SAMPLE_ITEMS, TEST_CACHE_DIR);
     // Backdate the file
-    const files = readdirSync(TEST_CACHE_DIR);
+    const files = require("node:fs").readdirSync(TEST_CACHE_DIR);
     const filePath = join(TEST_CACHE_DIR, files[0]);
     const entry = JSON.parse(readFileSync(filePath, "utf-8"));
     entry.timestamp = Date.now() - 120 * 60_000;

@@ -158,6 +158,7 @@ describe("loadConfig", () => {
     expect(config.cacheTtlMinutes).toBe(120);
     expect(config.concurrency).toBe(20);
   });
+<<<<<<< HEAD
 
   // --- Integer env var validation ---------------------------------------
 
@@ -188,4 +189,6 @@ describe("loadConfig", () => {
     const config = loadConfig();
     expect(config.concurrency).toBe(1);
   });
+=======
+>>>>>>> 4c03af2 (add caching, empty tagging support and update docs)
 });

@@ -86,6 +86,7 @@ function buildCategoryTags(): CategoryTagMap {
 }
 
 /**
+<<<<<<< HEAD
  * Parse an integer environment variable, throwing a descriptive error for
  * non-numeric values and clamping the result to a minimum.
  */
@@ -100,6 +101,8 @@ function parseIntEnv(name: string, raw: string | undefined, defaultVal: number, 
 }
 
 /**
+=======
+>>>>>>> 4c03af2 (add caching, empty tagging support and update docs)
  * Load and validate report configuration from environment variables.
  * Throws a descriptive error if any required field is missing.
  */
@@ -183,7 +186,12 @@ export function loadConfig(): ReportConfig {
 
     // Performance
     cacheDir: process.env.CACHE_DIR || ".cache",
+<<<<<<< HEAD
     cacheTtlMinutes: parseIntEnv("CACHE_TTL_MINUTES", process.env.CACHE_TTL_MINUTES, 60, 0),
     concurrency: parseIntEnv("CONCURRENCY", process.env.CONCURRENCY, 10, 1),
+=======
+    cacheTtlMinutes: parseInt(process.env.CACHE_TTL_MINUTES || "60", 10),
+    concurrency: parseInt(process.env.CONCURRENCY || "10", 10),
+>>>>>>> 4c03af2 (add caching, empty tagging support and update docs)
   };
 }
