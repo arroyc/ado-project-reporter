@@ -33,3 +33,4 @@ jobs:
         with:
           sarif_file: devskim-results.sarif
           category: devskim
+          category: devskim
