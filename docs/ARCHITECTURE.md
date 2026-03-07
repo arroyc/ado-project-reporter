@@ -10,12 +10,12 @@ The Project Status Report Agent is a TypeScript/Node.js application that fetches
 ┌──────────┐    ┌───────────┐    ┌────────────┐    ┌────────────┐    ┌──────────┐    ┌──────────┐
 │  Config   │───▶│ ADO Client │───▶│  Extractor  │───▶│ Summarizer │───▶│  Refiner  │───▶│ Template │
 │ (.env)    │    │  (WIQL)    │    │ (categorize)│    │   (LLM)    │    │  (LLM)    │    │  Engine  │
-└──────────┘    └─────┬─────┘    └────────────┘    └────────────┘    └──────────┘    └──────────┘
-                    │
-              ┌─────┴─────┐
-              │ Disk Cache │
-              │ (.cache/)  │
-              └───────────┘
+└──────────┘    └─────┬─────┘    └────────────┘    └─────┬──────┘    └──────────┘    └──────────┘
+                    │                         │
+              ┌─────┴─────┐             ┌─────┴─────┐
+              │ Disk Cache │             │  Vision   │
+              │ (.cache/)  │             │ (optional)│
+              └───────────┘             └───────────┘
 ```
 
 **Static mode:** `index.ts` → `report-generator.ts` runs the pipeline end-to-end and writes a `.md` file.

@@ -21,6 +21,7 @@ jobs:
     name: Publish Package
     runs-on: ubuntu-latest
     environment: npm-publish
+    if: github.actor == github.repository_owner
 
     steps:
       - name: Checkout

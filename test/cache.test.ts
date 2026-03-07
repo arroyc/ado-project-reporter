@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from "node:fs";
+import { rmSync, existsSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { cacheGet, cacheSet, cacheEvictExpired, type CacheKeyParams } from "../src/cache.js";
+import type { ADOWorkItem } from "../src/types.js";
 
 const TEST_CACHE_DIR = ".test-cache";
 
@@ -16,7 +17,7 @@ const PARAMS: CacheKeyParams = {
   teamMembers: ["Alice", "Bob"],
 };
 
-const SAMPLE_ITEMS = [
+const SAMPLE_ITEMS: ADOWorkItem[] = [
   {
     id: 1,
     type: "Bug",

@@ -273,3 +273,7 @@ All configuration is via environment variables (loaded from `.env`):
 | `CACHE_DIR` | No | ADO cache directory (default: `.cache`) |
 | `CACHE_TTL_MINUTES` | No | Cache TTL in minutes, `0` to disable (default: `60`) |
 | `CONCURRENCY` | No | Max concurrent ADO API requests (default: `10`) |
+| `ADO_CATEGORY_TAGS` | No | Mapping of report categories to ADO tags used for filtering work items. See `.env.*.example` for format and examples. |
+| `ADO_*_TAGS` | No | Tag filters for specific ADO work item types or sections (e.g., feature tags, risk tags). See `.env.*.example` for the full set. |
+| `ADO_TEAM_MEMBERS` | No | Mapping of ADO identities to display names/roles for reporting. See `.env.*.example` for details. |
+| `ADO_REQUIRED_TAGS` | No | Tags that work items must have to be included in reports. See `.env.*.example` for usage. |
