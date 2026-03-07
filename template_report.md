@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # Project Report: {{Team_Name}}
-=======
-# Monthly Report: {{Team_Name}}
->>>>>>> 4c03af2 (add caching, empty tagging support and update docs)
 
 **Client:** {{Client_Name}}
 **Reporting Period:** {{Start_Date}} - {{End_Date}}
