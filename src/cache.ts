@@ -79,6 +79,12 @@ export function cacheGet(
 
     return entry.items;
   } catch {
+    // On read/parse error, remove the corrupt cache file so future calls can succeed.
+    try {
+      unlinkSync(filePath);
+    } catch {
+      /* ignore unlink errors */
+    }
     return undefined;
   }
 }
