@@ -5,7 +5,6 @@
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
-import { fileURLToPath } from "node:url";
 import { getPackageVersion } from "./version.js";
 import { getAllWorkItems } from "./ado-client.js";
 import {

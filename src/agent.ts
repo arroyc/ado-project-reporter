@@ -36,7 +36,6 @@ import { refineAllSections } from "./refiner.js";
 import { populateTemplate } from "./template-engine.js";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
-import { fileURLToPath } from "node:url";
 import { getPackageVersion } from "./version.js";
 import type OpenAI from "openai";
 import type { AzureOpenAI } from "openai";
