@@ -206,26 +206,42 @@ async function handleGenerateReport(
   // Step 1: Fetch
   const { categorized } = await fetchPeriod(session, startDate, endDate);
 
-  // Fetch previous month for comparison
-  const prevDates = getPreviousMonthDates(startDate);
-  const { categorized: prevCategorized } = await fetchPeriod(
-    session,
-    prevDates.start,
-    prevDates.end
-  );
-
-  // Step 2: Comparison metrics
-  console.log("  ⏳ Computing comparison metrics...");
-  const currentMetrics = computePeriodMetrics(categorized);
-  const previousMetrics = computePeriodMetrics(prevCategorized);
-  const comparison = comparePeriods(currentMetrics, previousMetrics);
-
-  // Step 3: LLM summarization (parallel)
-  console.log("  ⏳ Generating summaries via LLM...");
   const model = session.config.llmModel;
   const client = session.llmClient;
   const vision = session.config.visionEnabled;
 
+  // Step 2: Comparison (optional)
+  let comparisonSummary: { analysis: string; table: import("./types.js").ComparisonTableRow[] };
+
+  if (session.config.enableComparison) {
+    const prevDates = getPreviousMonthDates(startDate);
+    const { categorized: prevCategorized } = await fetchPeriod(
+      session,
+      prevDates.start,
+      prevDates.end
+    );
+
+    console.log("  ⏳ Computing comparison metrics...");
+    const currentMetrics = computePeriodMetrics(categorized);
+    const previousMetrics = computePeriodMetrics(prevCategorized);
+    const comparison = comparePeriods(currentMetrics, previousMetrics);
+
+    comparisonSummary = await summarizeComparison(
+      comparison,
+      client,
+      model,
+      startDate,
+      prevDates.start
+    );
+  } else {
+    comparisonSummary = {
+      analysis: "Month-over-month comparison is disabled. Set ENABLE_COMPARISON=true to include.",
+      table: [],
+    };
+  }
+
+  // Step 3: LLM summarization (parallel)
+  console.log("  ⏳ Generating summaries via LLM...");
   const [
     executive,
     progress,
@@ -234,7 +250,6 @@ async function handleGenerateReport(
     nextSteps,
     clientActions,
     monitoringSupport,
-    comparisonSummary,
   ] = await Promise.all([
     summarizeExecutive(categorized, client, model, vision),
     summarizeProgress(categorized, client, model, vision),
@@ -243,16 +258,9 @@ async function handleGenerateReport(
     summarizeNextSteps(categorized, client, model, vision),
     summarizeClientActions(categorized, client, model, vision),
     summarizeMonitoringAndSupport(categorized, client, model, vision),
-    summarizeComparison(
-      comparison,
-      client,
-      model,
-      startDate,
-      prevDates.start
-    ),
   ]);
 
-  // Step 4: Refinement pass — make each section more concise
+  // Step 4: Refinement pass
   console.log("  ⏳ Refining summaries for conciseness...");
   const rawSections = {
     executive,
@@ -283,6 +291,8 @@ async function handleGenerateReport(
     s360Completed: refined.metrics.s360Completed,
     s360InProgress: refined.metrics.s360InProgress,
     releasesUpdate: refined.metrics.releasesUpdate,
+    hotfixDeployments: refined.metrics.hotfixDeployments,
+    hasIcmData: categorized.icmItems.length > 0,
     icmMetrics: refined.metrics.icmMetrics,
     monitoringUpdate: refined.monitoringSupport.monitoringUpdate,
     supportUpdate: refined.monitoringSupport.supportUpdate,
@@ -296,6 +306,8 @@ async function handleGenerateReport(
     version: "1.0.0",
     comparisonAnalysis: refined.comparisonSummary.analysis,
     comparisonTable: refined.comparisonSummary.table,
+    enableComparison: session.config.enableComparison,
+    sectionTitles: session.config.sectionTitles,
   };
 
   const report = populateTemplate(session.config.templatePath, sections);
@@ -643,6 +655,9 @@ function showHelp() {
 ║  🚪 Exit                                                        ║
 ║     "exit" / "quit" / "bye"                                      ║
 ║                                                                  ║
+║  🧹 Clear Screen                                                ║
+║     "clear" / "clr" / "cls"                                      ║
+║                                                                  ║
 ║  Current config:                                                 ║
 ║     Period: {startDate} → {endDate}                              ║
 ║     Team:   {teamName}                                           ║
@@ -725,6 +740,10 @@ export async function startAgent() {
     }
     if (/^help$/i.test(input)) {
       showHelp();
+      continue;
+    }
+    if (/^(clear|clr|cls)$/i.test(input)) {
+      console.clear();
       continue;
     }
 

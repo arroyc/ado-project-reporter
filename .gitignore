@@ -2,5 +2,8 @@ dist/
 output/
 package-lock.json
 .env
+.env.ollama
+.env.azure-openai
 node_modules
 *.tgz
+.cache/

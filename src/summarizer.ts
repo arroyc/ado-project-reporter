@@ -94,7 +94,6 @@ async function llmCall(
     model,
     messages: [
       { role: "system", content: systemPrompt },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { role: "user", content: userContent as any },
     ],
     response_format: { type: "json_object" },
@@ -241,6 +240,15 @@ export async function summarizeExecutive(
   breakthroughs: string[];
   milestones: string[];
 }> {
+  // Skip LLM call when no work items exist at all
+  if (data.allItems.length === 0) {
+    return {
+      executiveSummary: "No work items were found for the reporting period.",
+      breakthroughs: [],
+      milestones: [],
+    };
+  }
+
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given a list of work items, produce a concise executive summary paragraph, a list of key breakthroughs,
 and a list of key milestones achieved during the reporting period.
@@ -278,6 +286,15 @@ export async function summarizeProgress(
   model: string,
   visionEnabled = false
 ): Promise<ProgressRow[]> {
+  // Skip LLM call when no items to report
+  if (
+    data.completedItems.length === 0 &&
+    data.inProgressItems.length === 0 &&
+    data.bugs.length === 0
+  ) {
+    return [];
+  }
+
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given work items, produce a progress table. Group items by project area.
 Respond ONLY with JSON:
@@ -312,7 +329,29 @@ export async function summarizeMetrics(
   s360InProgress: string[];
   icmMetrics: ICMMetrics;
   releasesUpdate: string;
+  hotfixDeployments: number;
 }> {
+  // Skip LLM call when no tag-based items exist (no tags configured or none matched)
+  if (
+    data.s360Items.length === 0 &&
+    data.icmItems.length === 0 &&
+    data.rolloutItems.length === 0
+  ) {
+    return {
+      s360Completed: [],
+      s360InProgress: [],
+      icmMetrics: {
+        totalResolved: 0,
+        sev1: 0,
+        sev2: 0,
+        sev3: 0,
+        notes: "No S360, ICM, or rollout items found for this period.",
+      },
+      releasesUpdate: "No release activity during this period.",
+      hotfixDeployments: 0,
+    };
+  }
+
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given S360 items, ICM/incident items, and rollout/release items, produce structured metrics.
 Respond ONLY with JSON:
@@ -324,13 +363,14 @@ Respond ONLY with JSON:
     "sev1": 0,
     "sev2": 0,
     "sev3": 0,
-    "hotfixes": 0,
     "notes": "..."
   },
-  "releasesUpdate": "Summary of releases/rollouts during this period."
+  "releasesUpdate": "Summary of releases/rollouts during this period.",
+  "hotfixDeployments": 0
 }
 Derive ICM severity counts from work item titles, tags, or descriptions where available.
-The releasesUpdate should summarize items tagged with "rollout" — these are release/deployment activities.`;
+The releasesUpdate should summarize items tagged with "rollout" — these are release/deployment activities.
+hotfixDeployments counts any hotfix deployments found across all items — include this in releases context, not ICM.`;
 
   const userPrompt = JSON.stringify({
     s360Items: itemsToContext(data.s360Items, visionEnabled),
@@ -349,11 +389,11 @@ The releasesUpdate should summarize items tagged with "rollout" — these are re
       sev1: parsed.icmMetrics?.sev1 ?? 0,
       sev2: parsed.icmMetrics?.sev2 ?? 0,
       sev3: parsed.icmMetrics?.sev3 ?? 0,
-      hotfixes: parsed.icmMetrics?.hotfixes ?? 0,
       notes: parsed.icmMetrics?.notes ?? "N/A",
     },
     releasesUpdate:
       parsed.releasesUpdate ?? "No release activity during this period.",
+    hotfixDeployments: parsed.hotfixDeployments ?? 0,
   };
 }
 
@@ -366,6 +406,15 @@ export async function summarizeChallenges(
   model: string,
   visionEnabled = false
 ): Promise<{ challenges: string[]; mitigations: string[] }> {
+  // Skip LLM call when no risks, bugs, or in-progress items exist
+  if (
+    data.risks.length === 0 &&
+    data.bugs.length === 0 &&
+    data.inProgressItems.length === 0
+  ) {
+    return { challenges: [], mitigations: [] };
+  }
+
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given risks, blockers, and bugs, produce a list of current challenges and corresponding mitigation plans.
 Respond ONLY with JSON:
@@ -399,6 +448,11 @@ export async function summarizeNextSteps(
   model: string,
   visionEnabled = false
 ): Promise<UpcomingTask[]> {
+  // Skip LLM call when no new or in-progress items exist
+  if (data.newItems.length === 0 && data.inProgressItems.length === 0) {
+    return [];
+  }
+
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given new and in-progress work items, produce a table of upcoming tasks.
 Respond ONLY with JSON:
@@ -427,6 +481,11 @@ export async function summarizeClientActions(
   model: string,
   visionEnabled = false
 ): Promise<string[]> {
+  // Skip LLM call when no items exist
+  if (data.allItems.length === 0) {
+    return [];
+  }
+
   const systemPrompt = `You are a technical project manager writing a project status report.
 Identify items that require client input, approval, or action.
 Respond ONLY with JSON:
@@ -455,6 +514,14 @@ export async function summarizeMonitoringAndSupport(
   model: string,
   visionEnabled = false
 ): Promise<{ monitoringUpdate: string; supportUpdate: string }> {
+  // Skip LLM call when no monitoring or support items exist
+  if (data.monitoringItems.length === 0 && data.supportItems.length === 0) {
+    return {
+      monitoringUpdate: "No monitoring updates for this period.",
+      supportUpdate: "No support updates for this period.",
+    };
+  }
+
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given monitoring-tagged and support-tagged work items, produce a summary for each category.
 Respond ONLY with JSON:

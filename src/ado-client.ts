@@ -3,10 +3,18 @@
  *
  * Uses month-based date-range scoping via ResolvedDate/ClosedDate (OR logic).
  * Filters by team members, required tags, work item types, and states.
+ *
+ * Performance features:
+ * - Concurrent comment fetching with configurable concurrency limit
+ * - File-based disk cache with TTL to avoid redundant ADO queries
  */
 import * as azdev from "azure-devops-node-api";
 import { extractImageUrls } from "./extractor.js";
+import { cacheGet, cacheSet, type CacheKeyParams } from "./cache.js";
 import type { ReportConfig, ADOWorkItem, WorkItemComment } from "./types.js";
+
+/** Default number of concurrent comment-fetch requests. */
+const DEFAULT_CONCURRENCY = 10;
 
 /** Fields to fetch for each work item. */
 const WORK_ITEM_FIELDS = [
@@ -268,12 +276,99 @@ export async function fetchWorkItemComments(
 }
 
 /**
+ * Run async tasks with a concurrency limit (simple promise pool).
+ */
+async function parallelMap<T, R>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<R>,
+  concurrency: number
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Build CacheKeyParams from a ReportConfig (and optional category tags).
+ */
+function buildCacheKeyParams(
+  config: ReportConfig,
+  categoryTags?: string[]
+): CacheKeyParams {
+  return {
+    orgUrl: config.adoOrgUrl,
+    project: config.adoProject,
+    startDate: config.reportStartDate,
+    endDate: config.reportEndDate,
+    requiredTags: config.adoRequiredTags,
+    workItemTypes: config.adoWorkItemTypes,
+    states: config.adoStates,
+    teamMembers: config.adoTeamMembers,
+    areaPath: config.adoAreaPath,
+    categoryTags,
+  };
+}
+
+/**
+ * Fetch comments for a list of work items concurrently and attach to each item.
+ */
+async function fetchAllComments(
+  connection: azdev.WebApi,
+  project: string,
+  items: ADOWorkItem[],
+  concurrency: number,
+  verbose: boolean
+): Promise<void> {
+  if (items.length === 0) return;
+
+  let completed = 0;
+  const total = items.length;
+
+  await parallelMap(
+    items,
+    async (item) => {
+      item.comments = await fetchWorkItemComments(connection, project, item.id);
+      completed++;
+      if (verbose && completed % 20 === 0) {
+        console.log(`    … comments: ${completed}/${total}`);
+      }
+    },
+    concurrency
+  );
+}
+
+/**
  * Orchestrate: query → fetch details → fetch comments → return ADOWorkItem[].
  * Uses the base query (no category tag) so the extractor can categorize all items.
+ *
+ * Checks file-based cache first; skips ADO entirely on cache hit.
+ * Comments are fetched concurrently (default: 10 at a time).
  */
 export async function getAllWorkItems(
   config: ReportConfig
 ): Promise<ADOWorkItem[]> {
+  const cacheParams = buildCacheKeyParams(config);
+  const cached = cacheGet(cacheParams, config.cacheDir, config.cacheTtlMinutes);
+  if (cached) {
+    if (config.verbose) {
+      console.log(`  ⚡ Cache hit — ${cached.length} work item(s) loaded from disk cache.`);
+    }
+    return cached;
+  }
+
   const connection = createConnection(config);
   const scopeDesc = `date range: ${config.reportStartDate} to ${config.reportEndDate}`;
   if (config.verbose) {
@@ -288,20 +383,18 @@ export async function getAllWorkItems(
 
   const items = await fetchWorkItemDetails(connection, ids);
   if (config.verbose) {
-    console.log("Fetching comments for each work item...");
+    console.log(`Fetching comments for ${items.length} work items (concurrency: ${config.concurrency})...`);
   }
 
-  for (const item of items) {
-    item.comments = await fetchWorkItemComments(
-      connection,
-      config.adoProject,
-      item.id
-    );
-  }
+  await fetchAllComments(connection, config.adoProject, items, config.concurrency, config.verbose);
 
   if (config.verbose) {
     console.log(`Loaded ${items.length} work item(s) with comments.`);
   }
+
+  // Persist to disk cache
+  cacheSet(cacheParams, items, config.cacheDir);
+
   return items;
 }
 
@@ -314,6 +407,16 @@ export async function getAllWorkItemsByCategory(
   categoryTags: string | string[]
 ): Promise<ADOWorkItem[]> {
   const tags = Array.isArray(categoryTags) ? categoryTags : [categoryTags];
+
+  const cacheParams = buildCacheKeyParams(config, tags);
+  const cached = cacheGet(cacheParams, config.cacheDir, config.cacheTtlMinutes);
+  if (cached) {
+    if (config.verbose) {
+      console.log(`  ⚡ Cache hit — ${cached.length} work item(s) loaded from disk cache.`);
+    }
+    return cached;
+  }
+
   const connection = createConnection(config);
   if (config.verbose) {
     console.log(
@@ -331,21 +434,18 @@ export async function getAllWorkItemsByCategory(
 
   const items = await fetchWorkItemDetails(connection, ids);
   if (config.verbose) {
-    console.log("Fetching comments for each work item...");
+    console.log(`Fetching comments for ${items.length} work items (concurrency: ${config.concurrency})...`);
   }
 
-  for (const item of items) {
-    item.comments = await fetchWorkItemComments(
-      connection,
-      config.adoProject,
-      item.id
-    );
-  }
+  await fetchAllComments(connection, config.adoProject, items, config.concurrency, config.verbose);
 
   if (config.verbose) {
     console.log(
       `Loaded ${items.length} work item(s) with comments.`
     );
   }
+
+  cacheSet(cacheParams, items, config.cacheDir);
+
   return items;
 }

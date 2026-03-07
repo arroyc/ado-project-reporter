@@ -2,7 +2,7 @@
 
 AI-powered agent that fetches Azure DevOps work items, generates LLM-summarized sections, and produces formatted project status reports.
 
-![Sample Report Output](docs/images/sample-output.png)
+![Sample Report Output](images/sample-output.png)
 
 ## Quick Start
 
@@ -78,14 +78,14 @@ docs/              Documentation
    npm install
    ```
 
-2. Copy `.env.azure-openai.example` to `.env` and fill in your credentials:
+2. Copy `.env.azure-openai.example` or `.env.ollama.example` to `.env` and fill in your credentials:
    ```
    ADO_ORG_URL=https://dev.azure.com/yourorg
    ADO_PAT=your-personal-access-token
    ADO_PROJECT=YourProject
-   LLM_PROVIDER=azure-openai
-   LLM_API_KEY=your-api-key
-   LLM_MODEL=gpt-4o
+   LLM_PROVIDER=<your llm>
+   LLM_API_KEY=<only needed for azure-openai>
+   LLM_MODEL=<your model>
    TEAM_NAME=YourTeam
    CLIENT_NAME=YourClient
    PREPARED_BY=YourName
@@ -182,7 +182,7 @@ node dist/index.js
 
 Interactive mode starts a conversational REPL with a `psr-agent>` prompt. The agent uses the configured LLM to parse your natural language input into structured intents, so you can issue commands conversationally. It maintains a session with cached ADO data to avoid re-fetching between commands.
 
-![Interactive Mode — help command](docs/images/interactive-mode.png)
+![Interactive Mode — help command](images/interactive-mode.png)
 
 **Available commands:**
 
