@@ -158,4 +158,19 @@ describe("loadConfig", () => {
     expect(config.cacheTtlMinutes).toBe(120);
     expect(config.concurrency).toBe(20);
   });
+
+  it("throws when CONCURRENCY is 0", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CONCURRENCY: "0" });
+    expect(() => loadConfig()).toThrowError(/CONCURRENCY/i);
+  });
+
+  it("throws when CONCURRENCY is negative", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CONCURRENCY: "-5" });
+    expect(() => loadConfig()).toThrowError(/CONCURRENCY/i);
+  });
+
+  it("throws when CONCURRENCY is not a number", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CONCURRENCY: "abc" });
+    expect(() => loadConfig()).toThrowError(/CONCURRENCY/i);
+  });
 });

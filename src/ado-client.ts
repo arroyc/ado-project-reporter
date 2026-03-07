@@ -280,6 +280,12 @@ async function parallelMap<T, R>(
   fn: (item: T, index: number) => Promise<R>,
   concurrency: number
 ): Promise<R[]> {
+  if (!Number.isFinite(concurrency) || concurrency < 1) {
+    throw new Error(
+      `parallelMap: concurrency must be a positive integer, got ${concurrency}`
+    );
+  }
+
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
 

@@ -170,6 +170,14 @@ export function loadConfig(): ReportConfig {
     // Performance
     cacheDir: process.env.CACHE_DIR || ".cache",
     cacheTtlMinutes: parseInt(process.env.CACHE_TTL_MINUTES || "60", 10),
-    concurrency: parseInt(process.env.CONCURRENCY || "10", 10),
+    concurrency: (() => {
+      const val = parseInt(process.env.CONCURRENCY || "10", 10);
+      if (!Number.isFinite(val) || val <= 0) {
+        throw new Error(
+          `Invalid CONCURRENCY value "${process.env.CONCURRENCY}": must be a positive integer.`
+        );
+      }
+      return val;
+    })(),
   };
 }
