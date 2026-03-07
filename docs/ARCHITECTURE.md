@@ -234,6 +234,7 @@ Intent Parser (LLM) ──▶ { action, params }
     ▼
 Action Dispatcher
     ├── generate_report  → full pipeline (fetch → categorize → summarize → refine → template → write)
+    │                      params: startDate, endDate, comparison ("true"/"false")
     ├── compare_months   → multi-month fetch → side-by-side comparison
     ├── show_metrics     → category deep dive
     ├── refine_section   → re-run refiner on cached data
@@ -242,6 +243,13 @@ Action Dispatcher
     ├── help             → print available commands
     └── exit             → quit
 ```
+
+**Comparison toggle via prompt:**
+
+The `generate_report` intent accepts an optional `comparison` param (`"true"` or `"false"`) parsed from natural language:
+- "generate report for February with comparison" → `{ comparison: "true" }` — enables month-over-month
+- "generate report for February without comparison" → `{ comparison: "false" }` — disables it
+- When not specified, the `ENABLE_COMPARISON` env var value is used as the default
 
 **Session state:**
 - `config`: Current `ReportConfig` (mutable via `change_config`)
@@ -261,7 +269,11 @@ Runs the full static generation pipeline:
 6. **Populate** — `populateTemplate()` fills the Markdown template (with conditional blocks and section titles)
 7. **Write** — Output to `{outputPath}` with month-year suffix
 
-When `ENABLE_COMPARISON=false` (default), steps 3 and the comparison summarize call are skipped, reducing to a 5-step pipeline.
+When comparison is disabled (default), steps 3 and the comparison summarize call are skipped, reducing to a 5-step pipeline.
+
+**Dynamic version:** The report version is read from `package.json` at runtime via `getPackageVersion()` instead of being hardcoded.
+
+**Section renumbering:** After conditional blocks are processed (e.g. removing the comparison section), `renumberSectionHeadings()` renumbers all `## N.` headings sequentially so there are no gaps (e.g., 1, 2, 3, 4 instead of 1, 2, 3, 5, 6).
 
 ## Data Flow
 
@@ -375,9 +387,10 @@ project-status-report-agent/
 │   ├── report-generator.ts   Pipeline orchestrator
 │   └── agent.ts              Interactive REPL agent
 ├── test/
-│   ├── config.test.ts        Config loader tests (11 tests)
-│   ├── extractor.test.ts     Extractor tests (35 tests)
-│   └── template-engine.test.ts  Template engine tests (7 tests)
+│   ├── cache.test.ts         Cache tests (6 tests)
+│   ├── config.test.ts        Config loader tests (18 tests)
+│   ├── extractor.test.ts     Extractor tests (37 tests)
+│   └── template-engine.test.ts  Template engine tests (8 tests)
 ├── dist/                     Compiled JS output
 ├── output/                   Generated reports
 ├── docs/
@@ -405,3 +418,7 @@ project-status-report-agent/
 7. **Session caching in agent mode** — Fetched ADO data is cached by period start date. Subsequent commands reuse cached data, avoiding redundant API calls during a conversation.
 
 8. **Template engine with dynamic expansion** — Bullet lists and table rows expand/contract to match actual data. Leftover placeholders are cleaned up automatically.
+
+9. **Per-request comparison toggle** — In interactive mode, users can enable or disable month-over-month comparison on a per-report basis via natural language (e.g. "with comparison" / "without comparison"), overriding the `ENABLE_COMPARISON` env var for that run.
+
+10. **Auto section renumbering** — The template engine renumbers `## N.` section headings after conditional block processing, ensuring sequential numbering regardless of which sections are included or excluded.

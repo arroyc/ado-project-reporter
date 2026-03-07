@@ -36,7 +36,9 @@ await generateReport(config);    // generates the report
 
 - **Azure DevOps Integration** — Queries work items via WIQL, fetches details and comments
 - **LLM Summarization** — Uses OpenAI, Azure OpenAI, or a local Ollama model (e.g. Llama) to generate executive summaries, progress tables, metrics, challenges, and next steps
-- **Multi-Month Comparison** — Optional month-over-month comparison (toggle via `ENABLE_COMPARISON`)
+- **Multi-Month Comparison** — Optional month-over-month comparison (toggle via `ENABLE_COMPARISON` env var, or per-request in interactive mode with "with comparison" / "without comparison")
+- **Dynamic Version** — Report version is read from `package.json` at runtime
+- **Auto Section Renumbering** — When conditional sections (e.g. comparison) are removed, remaining section headings are renumbered sequentially
 - **Template Engine** — Populates a Markdown template with structured report data, conditional blocks (`{{#if}}`), and configurable section titles
 - **Interactive Agent** — Conversational REPL for on-demand report generation and analysis
 - **Static Mode** — One-shot CLI for automated report generation
@@ -190,10 +192,13 @@ Interactive mode starts a conversational REPL with a `psr-agent>` prompt. The ag
 |---------|-------------|
 | `generate report` | Generate a full report for the configured period (`REPORT_START_DATE` → `REPORT_END_DATE`) |
 | `generate report for January 2026` | Generate a report for a specific period (the agent infers the date range) |
+| `generate report for Feb with comparison` | Generate a report with month-over-month comparison enabled |
+| `generate report for March without comparison` | Generate a report with comparison explicitly disabled |
 | `compare last 3 months` | Fetch multiple months and produce a multi-month trend comparison |
 | `show S360 metrics` | Deep-dive into a specific category (s360, icm, rollout, monitoring, support, bugs, blockers, or all) |
 | `polish the executive summary` | Re-summarize or refine a specific section (executive, progress, metrics, challenges, next_steps, comparison, or all) |
 | `set team name to Platform Team` | Override any config value at runtime without restarting |
+| `list tags` / `show tags` | Display configured ADO category tag mappings |
 | `clear` / `clr` / `cls` | Clear the terminal screen |
 | `help` | Show all available commands |
 | `exit` | Quit the agent |
@@ -201,10 +206,14 @@ Interactive mode starts a conversational REPL with a `psr-agent>` prompt. The ag
 **Example session:**
 ```
 psr-agent> generate report for February 2026
-  ⏳ Fetching work items for 2026-02-01 → 2026-03-01...
-  ✓ 42 items fetched (35 completed, 3 bugs)
+  📊 Generating report for 2026-02-01 → 2026-03-01 (without comparison)
   ...
-  ✅ Report saved to ./output/report.md
+  ✅ Report written to ./output/report-february-2026.md
+
+psr-agent> generate report for February 2026 with comparison
+  📊 Generating report for 2026-02-01 → 2026-03-01 (with comparison)
+  ...
+  ✅ Report written to ./output/report-february-2026.md
 
 psr-agent> compare last 3 months
   ⏳ Fetching work items for Dec 2025, Jan 2026, Feb 2026...

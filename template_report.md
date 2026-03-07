@@ -1,8 +1,11 @@
 # Project Report: {{Team_Name}}
 
 **Client:** {{Client_Name}}
+
 **Reporting Period:** {{Start_Date}} - {{End_Date}}
+
 **Prepared By:** {{Prepared_By}}
+
 **Date of Submission:** {{Submission_Date}}
 
 ---
@@ -30,7 +33,7 @@
 
 ## 2. Progress and Key Updates
 
-| Task / Project Area | Status | Description & Comments | Expected Completion |
+| Task / Project Area | Status | Description & Comments | Status |
 |---------------------|--------|------------------------|--------------------|
 | {{Project_1}} | {{Status}} | {{Description}} | {{Date}} |
 | {{Project_2}} | {{Status}} | {{Description}} | {{Date}} |
@@ -137,7 +140,7 @@ No ICMs reported for this period.
 
 ## 6. Next Steps and Upcoming Milestones
 
-| Task | Details | Expected Completion |
+| Task | Details | ETA |
 |------|---------|--------------------|
 | {{Upcoming_Task_1}} | {{Details}} | {{Date}} |
 | {{Upcoming_Task_2}} | {{Details}} | {{Date}} |

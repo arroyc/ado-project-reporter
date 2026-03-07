@@ -3,8 +3,9 @@
  *
  * Pipeline: loadConfig → getAllWorkItems → categorize → summarize → populate template → write
  */
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getAllWorkItems } from "./ado-client.js";
 import {
   categorizeWorkItems,
@@ -208,7 +209,7 @@ export async function generateReport(config: ReportConfig): Promise<string> {
     dataSource: "Azure DevOps",
     generatedTimestamp: now.toISOString(),
     generatedBy: "Project Status Report Agent",
-    version: "1.0.0",
+    version: getPackageVersion(),
 
     // Comparison
     comparisonAnalysis: refined.comparisonSummary.analysis,
@@ -231,6 +232,18 @@ export async function generateReport(config: ReportConfig): Promise<string> {
   log(`  → Report written to ${outputPath}`);
 
   return outputPath;
+}
+
+/** Read the package version from the nearest package.json. */
+function getPackageVersion(): string {
+  try {
+    const thisDir = dirname(fileURLToPath(import.meta.url));
+    const pkgPath = join(thisDir, "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 /**

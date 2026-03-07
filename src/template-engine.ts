@@ -97,6 +97,9 @@ export function populateTemplate(
     noIcmData: !sections.hasIcmData,
   });
 
+  // ── Re-number ## N. headings sequentially after conditional removal ──
+  content = renumberSectionHeadings(content);
+
   // ── Final cleanup: remove any remaining {{…}} placeholder lines ──────
   content = content
     .split("\n")
@@ -129,6 +132,18 @@ function processConditionalBlocks(
     content = content.replace(regex, value ? "$1" : "");
   }
   return content;
+}
+
+/**
+ * Re-number `## N.` section headings sequentially (1, 2, 3, …).
+ * This keeps numbering correct after conditional blocks remove entire sections.
+ */
+function renumberSectionHeadings(content: string): string {
+  let counter = 0;
+  return content.replace(/^(## )\d+\./gm, () => {
+    counter++;
+    return `## ${counter}.`;
+  });
 }
 
 // ---------------------------------------------------------------------------

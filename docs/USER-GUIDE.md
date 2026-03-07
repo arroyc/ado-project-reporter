@@ -15,7 +15,7 @@ The Project Status Report Agent connects to your Azure DevOps project, pulls wor
 - **Challenges & Mitigations** — Current blockers and how they're being addressed
 - **Upcoming Tasks** — What's planned for the next period
 - **Client Action Items** — Items requiring client attention
-- **Month-over-Month Comparison** — Trends compared to the previous period
+- **Month-over-Month Comparison** — Trends compared to the previous period (enable per-request or via env var)
 
 ---
 
@@ -208,10 +208,13 @@ You'll see a `psr-agent>` prompt. Try these commands:
 |---------------|-------------|
 | `generate report` | Creates a full report for the configured period |
 | `generate report for January 2026` | Report for a specific month |
+| `generate report for Feb with comparison` | Report with month-over-month comparison enabled |
+| `generate report for March without comparison` | Report with comparison explicitly disabled |
 | `compare last 3 months` | Side-by-side comparison of the last 3 months |
 | `show S360 metrics` | Deep dive into S360 compliance items |
 | `show all metrics` | Overview of all categories |
 | `set team name to Cloud Platform` | Change a setting without editing .env |
+| `list tags` / `show tags` | Display configured ADO category tag mappings |
 | `help` | List all available commands |
 | `exit` | Quit the agent |
 
@@ -219,7 +222,34 @@ The agent caches your Azure DevOps data during the session, so follow-up command
 
 ---
 
-### Scenario 6: Custom Tag Mappings
+### Scenario 6: Report With or Without Comparison
+
+You can control whether the month-over-month comparison section is included directly from the interactive prompt — no need to edit `.env` each time.
+
+**Run:**
+```
+npm start
+```
+
+**With comparison:**
+```
+psr-agent> generate report for February 2026 with comparison
+```
+This fetches the current and previous month's data and includes a comparison section with trend analysis.
+
+**Without comparison:**
+```
+psr-agent> generate report for February 2026 without comparison
+```
+Or simply:
+```
+psr-agent> generate report for February 2026
+```
+When you don't mention comparison, the `ENABLE_COMPARISON` env var value is used (default: `false`). The comparison section is fully omitted from the report and section numbers adjust automatically.
+
+---
+
+### Scenario 7: Custom Tag Mappings
 
 Your team uses different tags than the defaults. For example, your monitoring items are tagged "observability" instead of "Monitoring".
 
@@ -250,7 +280,7 @@ Each setting is a comma-separated list. The agent matches items if they have **a
 
 ---
 
-### Scenario 7: Custom Work Item Types and States
+### Scenario 8: Custom Work Item Types and States
 
 Your project uses custom work item types or states beyond the defaults.
 
@@ -269,7 +299,7 @@ ADO_STATES=Closed,Resolved,Done,Completed
 
 ---
 
-### Scenario 8: Required Tags — Filter to a Specific Initiative
+### Scenario 9: Required Tags — Filter to a Specific Initiative
 
 If all your team's work items share a common tag (e.g., a project name), you can require it:
 
@@ -282,7 +312,7 @@ Only items with this tag will be included. You can list multiple tags (comma-sep
 
 ---
 
-### Scenario 9: Including Screenshots in AI Analysis
+### Scenario 10: Including Screenshots in AI Analysis
 
 If your work items contain screenshots (dashboards, error screenshots, UI mockups), the AI can analyze them for richer summaries.
 
@@ -297,7 +327,7 @@ The agent extracts images from work item descriptions and comments, fetches them
 
 ---
 
-### Scenario 10: Automated Scheduled Reports
+### Scenario 11: Automated Scheduled Reports
 
 You can schedule report generation using any task scheduler.
 

@@ -34,8 +34,9 @@ import {
 } from "./summarizer.js";
 import { refineAllSections } from "./refiner.js";
 import { populateTemplate } from "./template-engine.js";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import type OpenAI from "openai";
 import type { AzureOpenAI } from "openai";
 import type {
@@ -70,16 +71,17 @@ The user will give a natural language command. Parse it into a structured intent
 
 Respond ONLY with JSON:
 {
-  "action": "<one of: generate_report, compare_months, show_metrics, refine_section, change_config, help, exit, unknown>",
+  "action": "<one of: generate_report, compare_months, show_metrics, refine_section, change_config, list_tags, help, exit, unknown>",
   "params": { ... }
 }
 
 Action rules:
-- "generate_report": Generate a report. params: { "startDate": "YYYY-MM-DD" (optional), "endDate": "YYYY-MM-DD" (optional) }
+- "generate_report": Generate a report. params: { "startDate": "YYYY-MM-DD" (optional), "endDate": "YYYY-MM-DD" (optional), "comparison": "true" or "false" (optional — set to "true" when user says "with comparison" or "with previous month comparison", set to "false" when user says "without comparison" or explicitly disables comparison; omit when not mentioned) }
 - "compare_months": Compare multiple months. params: { "months": "<number of months, e.g. 3>", "endDate": "YYYY-MM-DD" (optional, defaults to current period end) }
 - "show_metrics": Show detailed metrics for a category. params: { "category": "<s360|icm|rollout|monitoring|support|bugs|blockers|all>" }
 - "refine_section": Polish/re-summarize a section. params: { "section": "<executive|progress|metrics|challenges|next_steps|comparison|all>" }
 - "change_config": Change a runtime config. params: { "key": "<config key>", "value": "<new value>" }
+- "list_tags": User wants to see configured ADO category tags / tag mappings.
 - "help": User wants help.
 - "exit": User wants to quit (quit, exit, bye, done, etc.).
 - "unknown": Cannot determine intent.
@@ -87,6 +89,9 @@ Action rules:
 Examples:
 - "generate the report" → { "action": "generate_report", "params": {} }
 - "generate report for January 2026" → { "action": "generate_report", "params": { "startDate": "2026-01-01", "endDate": "2026-02-01" } }
+- "generate report for February 2026 with comparison" → { "action": "generate_report", "params": { "startDate": "2026-02-01", "endDate": "2026-03-01", "comparison": "true" } }
+- "generate report for February 2026 with previous month's comparison" → { "action": "generate_report", "params": { "startDate": "2026-02-01", "endDate": "2026-03-01", "comparison": "true" } }
+- "generate report for March without comparison" → { "action": "generate_report", "params": { "startDate": "2026-03-01", "endDate": "2026-04-01", "comparison": "false" } }
 - "compare last 3 months" → { "action": "compare_months", "params": { "months": "3" } }
 - "show me S360 metrics" → { "action": "show_metrics", "params": { "category": "s360" } }
 - "show all metrics in detail" → { "action": "show_metrics", "params": { "category": "all" } }
@@ -94,6 +99,9 @@ Examples:
 - "make all sections more concise" → { "action": "refine_section", "params": { "section": "all" } }
 - "set team name to Platform Team" → { "action": "change_config", "params": { "key": "teamName", "value": "Platform Team" } }
 - "change reporting period to March" → { "action": "change_config", "params": { "key": "reportStartDate", "value": "2026-03-01" } }
+- "list tags" → { "action": "list_tags", "params": {} }
+- "what tags are available" → { "action": "list_tags", "params": {} }
+- "show ado tags" → { "action": "list_tags", "params": {} }
 - "bye" → { "action": "exit", "params": {} }`;
 
 async function parseIntent(
@@ -197,7 +205,15 @@ async function handleGenerateReport(
   const startDate = params.startDate || session.config.reportStartDate;
   const endDate = params.endDate || session.config.reportEndDate;
 
-  console.log(`\n📊 Generating report for ${startDate} → ${endDate}\n`);
+  // Toggle comparison based on user prompt (overrides env config for this run)
+  if (params.comparison === "true") {
+    session.config.enableComparison = true;
+  } else if (params.comparison === "false") {
+    session.config.enableComparison = false;
+  }
+
+  const compLabel = session.config.enableComparison ? "with comparison" : "without comparison";
+  console.log(`\n📊 Generating report for ${startDate} → ${endDate} (${compLabel})\n`);
 
   // Override config dates
   session.config.reportStartDate = startDate;
@@ -303,7 +319,7 @@ async function handleGenerateReport(
     dataSource: "Azure DevOps",
     generatedTimestamp: now.toISOString(),
     generatedBy: "Project Status Report Agent",
-    version: "1.0.0",
+    version: getPackageVersion(),
     comparisonAnalysis: refined.comparisonSummary.analysis,
     comparisonTable: refined.comparisonSummary.table,
     enableComparison: session.config.enableComparison,
@@ -623,6 +639,23 @@ function handleChangeConfig(
   }
 }
 
+function handleListTags(session: Session) {
+  const tags = session.config.adoCategoryTags;
+  console.log("\n🏷️  Configured ADO Category Tags");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+  const categories = Object.keys(tags).sort();
+  const maxLen = Math.max(...categories.map((c) => c.length));
+
+  for (const category of categories) {
+    const tagList = tags[category].join(", ");
+    console.log(`  ${category.padEnd(maxLen)}  →  ${tagList}`);
+  }
+
+  console.log("\n  Override via env vars: ADO_CATEGORY_TAGS, ADO_S360_TAGS, ADO_ICM_TAGS, etc.");
+  console.log('  Or at runtime: "set adoCategoryTags to ..."\n');
+}
+
 function showHelp() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
@@ -634,7 +667,8 @@ function showHelp() {
 ║  📊 Report Generation                                           ║
 ║     "generate report"                                            ║
 ║     "generate report for January 2026"                           ║
-║     "create the report for March"                                ║
+║     "generate report for Feb with comparison"                    ║
+║     "generate report for March without comparison"               ║
 ║                                                                  ║
 ║  📈 Multi-Month Comparison                                      ║
 ║     "compare last 3 months"                                      ║
@@ -651,6 +685,9 @@ function showHelp() {
 ║     "set team name to Platform Team"                             ║
 ║     "change reporting period to March 2026"                      ║
 ║     "set output path to ./reports/march.md"                      ║
+║                                                                  ║
+║  🏷️  Tags                                                        ║
+║     "list tags" / "show tags" / "what tags are available?"        ║
 ║                                                                  ║
 ║  🚪 Exit                                                        ║
 ║     "exit" / "quit" / "bye"                                      ║
@@ -669,6 +706,18 @@ function showHelp() {
 // ---------------------------------------------------------------------------
 // Main agent loop
 // ---------------------------------------------------------------------------
+
+/** Read the package version from the nearest package.json. */
+function getPackageVersion(): string {
+  try {
+    const thisDir = dirname(fileURLToPath(import.meta.url));
+    const pkgPath = join(thisDir, "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 /**
  * Append month and year to the output filename.
@@ -746,6 +795,10 @@ export async function startAgent() {
       console.clear();
       continue;
     }
+    if (/^(tags|list tags|show tags)$/i.test(input)) {
+      handleListTags(session);
+      continue;
+    }
 
     // Parse intent via LLM
     console.log("  🧠 Understanding your request...");
@@ -767,6 +820,9 @@ export async function startAgent() {
           break;
         case "change_config":
           handleChangeConfig(session, intent.params);
+          break;
+        case "list_tags":
+          handleListTags(session);
           break;
         case "help":
           showHelp();

@@ -4,6 +4,7 @@ test/
 tsconfig.json
 .env
 .env.ollama
+.env.ollama.backup
 .env.azure-openai
 .gitignore
 
