@@ -158,4 +158,34 @@ describe("loadConfig", () => {
     expect(config.cacheTtlMinutes).toBe(120);
     expect(config.concurrency).toBe(20);
   });
+
+  // --- Integer env var validation ---------------------------------------
+
+  it("throws a descriptive error when CACHE_TTL_MINUTES is non-numeric", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CACHE_TTL_MINUTES: "not-a-number" });
+    expect(() => loadConfig()).toThrowError(/CACHE_TTL_MINUTES/);
+  });
+
+  it("throws a descriptive error when CONCURRENCY is non-numeric", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CONCURRENCY: "abc" });
+    expect(() => loadConfig()).toThrowError(/CONCURRENCY/);
+  });
+
+  it("clamps a negative CACHE_TTL_MINUTES to 0", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CACHE_TTL_MINUTES: "-5" });
+    const config = loadConfig();
+    expect(config.cacheTtlMinutes).toBe(0);
+  });
+
+  it("clamps CONCURRENCY of 0 to 1", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CONCURRENCY: "0" });
+    const config = loadConfig();
+    expect(config.concurrency).toBe(1);
+  });
+
+  it("clamps a negative CONCURRENCY to 1", () => {
+    Object.assign(process.env, { ...REQUIRED_ENV, CONCURRENCY: "-3" });
+    const config = loadConfig();
+    expect(config.concurrency).toBe(1);
+  });
 });

@@ -86,6 +86,20 @@ function buildCategoryTags(): CategoryTagMap {
 }
 
 /**
+ * Parse an integer environment variable, throwing a descriptive error for
+ * non-numeric values and clamping the result to a minimum.
+ */
+function parseIntEnv(name: string, raw: string | undefined, defaultVal: number, min: number): number {
+  const value = parseInt(raw ?? String(defaultVal), 10);
+  if (Number.isNaN(value)) {
+    throw new Error(
+      `Environment variable ${name} must be a valid integer (received "${raw}").`
+    );
+  }
+  return Math.max(min, value);
+}
+
+/**
  * Load and validate report configuration from environment variables.
  * Throws a descriptive error if any required field is missing.
  */
@@ -169,7 +183,7 @@ export function loadConfig(): ReportConfig {
 
     // Performance
     cacheDir: process.env.CACHE_DIR || ".cache",
-    cacheTtlMinutes: parseInt(process.env.CACHE_TTL_MINUTES || "60", 10),
-    concurrency: parseInt(process.env.CONCURRENCY || "10", 10),
+    cacheTtlMinutes: parseIntEnv("CACHE_TTL_MINUTES", process.env.CACHE_TTL_MINUTES, 60, 0),
+    concurrency: parseIntEnv("CONCURRENCY", process.env.CONCURRENCY, 10, 1),
   };
 }
