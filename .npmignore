@@ -1,0 +1,18 @@
+# Source & config
+src/
+test/
+tsconfig.json
+.env
+.env.example
+.gitignore
+
+# Output & build artifacts
+output/
+node_modules/
+
+# Editor & OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

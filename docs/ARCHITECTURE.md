@@ -1,0 +1,368 @@
+# Project Status Report Agent — Architecture
+
+## Overview
+
+The Project Status Report Agent is a TypeScript/Node.js application that fetches work item data from Azure DevOps, categorizes it by report sections, generates LLM-powered summaries for each section, refines them, and populates a Markdown report template. It supports two runtime modes: **interactive agent** (conversational REPL) and **static** (one-shot CLI).
+
+## High-Level Pipeline
+
+```
+┌──────────┐    ┌───────────┐    ┌────────────┐    ┌────────────┐    ┌──────────┐    ┌──────────┐
+│  Config   │───▶│ ADO Client │───▶│  Extractor  │───▶│ Summarizer │───▶│  Refiner  │───▶│ Template │
+│ (.env)    │    │  (WIQL)    │    │ (categorize)│    │   (LLM)    │    │  (LLM)    │    │  Engine  │
+└──────────┘    └───────────┘    └────────────┘    └────────────┘    └──────────┘    └──────────┘
+                                                          │
+                                                   ┌──────┴──────┐
+                                                   │ Vision Layer │
+                                                   │ (base64 img) │
+                                                   └─────────────┘
+```
+
+**Static mode:** `index.ts` → `report-generator.ts` runs the pipeline end-to-end and writes a `.md` file.
+
+**Interactive mode:** `index.ts` → `agent.ts` starts a REPL. The agent parses user intent via LLM and dispatches actions (generate, compare months, show metrics, refine, change config).
+
+## Source Modules
+
+### `src/index.ts` — CLI Entry Point
+
+- Parses `--static` / `-s` flag
+- Static mode: calls `generateReport(config)`
+- Interactive mode: calls `startAgent()`
+- Re-exports all public types for library consumers
+
+### `src/config.ts` — Configuration Loader
+
+- Reads `.env` via `dotenv`
+- Validates required environment variables (throws on missing)
+- Returns a fully typed `ReportConfig` object
+- Handles provider-specific logic (e.g., `LLM_API_KEY` optional for Ollama)
+- Comma-separated env vars parsed via `parseList()`
+
+**Key env vars:**
+
+| Variable | Purpose |
+|----------|---------|
+| `ADO_ORG_URL`, `ADO_PAT`, `ADO_PROJECT` | ADO connection (required) |
+| `ADO_TEAM`, `ADO_AREA_PATH` | Scope filtering (optional) |
+| `ADO_TEAM_MEMBERS` | Comma-separated list of display names for `System.AssignedTo` WIQL filter |
+| `ADO_REQUIRED_TAGS` | Comma-separated tags ALL items must have |
+| `ADO_WORK_ITEM_TYPES` | Override default types (Bug, Feature, User Story, Task, Prod Change Request) |
+| `ADO_STATES` | Override default states (Closed, Removed, Resolved) |
+| `ADO_*_TAGS` | Per-category tag overrides (e.g., `ADO_S360_TAGS`, `ADO_MONITORING_TAGS`) |
+| `REPORT_START_DATE`, `REPORT_END_DATE` | Reporting period (required, YYYY-MM-DD) |
+| `LLM_PROVIDER` | `"openai"` (default), `"azure-openai"`, or `"ollama"` |
+| `LLM_ENDPOINT`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_API_VERSION` | LLM connection |
+| `VISION_ENABLED` | `"true"` to attach work item screenshots to LLM calls |
+| `TEAM_NAME`, `CLIENT_NAME`, `PREPARED_BY` | Report metadata |
+| `OUTPUT_PATH`, `TEMPLATE_PATH` | File paths |
+
+### `src/types.ts` — Type Definitions
+
+Central type file. Key interfaces:
+
+| Type | Purpose |
+|------|---------|
+| `ReportConfig` | Full configuration shape (all env vars) |
+| `CategoryTagMap` | Maps report categories → ADO tag arrays (OR logic) |
+| `ADOWorkItem` | Work item with extracted fields, comments, and image URLs |
+| `WorkItemComment` | Discussion comment with image URLs |
+| `CategorizedReportData` | Work items bucketed by state, type, and tag-based category |
+| `ReportSections` | Final report data — maps 1:1 to template placeholders |
+| `PeriodMetrics` / `PeriodComparison` / `PeriodDelta` | Month-over-month comparison data |
+| `ProgressRow`, `ICMMetrics`, `UpcomingTask`, `ComparisonTableRow` | Table row shapes |
+
+### `src/ado-client.ts` — Azure DevOps Client
+
+Handles all ADO API communication using `azure-devops-node-api`.
+
+**WIQL Query Construction:**
+
+The query is built from composable clause builders:
+
+```
+SELECT [System.Id] FROM WorkItems
+WHERE [System.TeamProject] = '{project}'
+  AND [System.AreaPath] UNDER '{areaPath}'           ← buildAssignedToClause()
+  AND ( [System.AssignedTo] = 'Name1' OR ... )       ← buildAssignedToClause()
+  AND ( [System.State] = 'Closed' OR ... )            ← buildStateClause()
+  AND ( [System.WorkItemType] = 'Bug' OR ... )        ← buildWorkItemTypeClause()
+  AND ( [ResolvedDate] > start OR [ClosedDate] > start )  ← buildDateRangeClause()
+  AND ( [ResolvedDate] < end OR [ClosedDate] < end )
+  AND [System.Tags] CONTAINS 'requiredTag'            ← buildRequiredTagsClauses()
+  AND [System.Tags] CONTAINS 'categoryTag'            ← optional category filter
+ORDER BY [System.ChangedDate] DESC
+```
+
+**Data flow:**
+
+1. `queryWorkItems()` — executes WIQL, returns work item IDs
+2. `fetchWorkItemDetails()` — batch-fetches fields (200 per batch), extracts image URLs from descriptions
+3. `fetchWorkItemComments()` — fetches discussion comments per item, extracts image URLs
+4. `getAllWorkItems()` — orchestrates the above three steps
+5. `getAllWorkItemsByCategory()` — same, but with category tag filter
+
+**Team member filtering:** The `ADO_TEAM_MEMBERS` env var feeds `config.adoTeamMembers` → `buildAssignedToClause()` which produces `AND ( [System.AssignedTo] = 'Name' OR ... )`. If empty, no filter is applied (all assignees returned).
+
+### `src/extractor.ts` — Categorization & HTML Processing
+
+Pure functions with no side effects or I/O.
+
+| Function | Purpose |
+|----------|---------|
+| `categorizeWorkItems(items, categoryTags)` | Buckets items by state (completed/in-progress/new), type (bugs), and tag-based categories (s360, icm, rollout, monitoring, support, risk, milestone). Items can appear in multiple buckets. |
+| `stripHtml(html)` | Converts ADO rich-text HTML to plain text |
+| `extractImageUrls(html)` | Extracts `<img src>` URLs from HTML (skips `data:` URIs) |
+| `getPreviousMonthDates(startDate)` | Computes previous month's start/end for comparison |
+| `computePeriodMetrics(categorized)` | Extracts numeric metrics (counts, story points) from categorized data |
+| `comparePeriods(current, previous)` | Computes deltas between two period metrics |
+
+**Category tag matching** is case-insensitive with OR logic. A category like `monitoring` matches items tagged with any of `["Monitoring", "dev-test-ci", "pipeline-monitoring"]`.
+
+### `src/summarizer.ts` — LLM-Powered Summarization
+
+Generates structured JSON summaries for each report section using the OpenAI chat completions API.
+
+**LLM Client:**
+
+`createLLMClient(config)` returns an `OpenAI` or `AzureOpenAI` instance depending on `llmProvider`:
+
+| Provider | Client | Configuration |
+|----------|--------|---------------|
+| `openai` | `new OpenAI({ apiKey })` | Standard OpenAI API |
+| `azure-openai` | `new AzureOpenAI({ endpoint, apiKey, apiVersion })` | Azure OpenAI endpoint |
+| `ollama` | `new OpenAI({ baseURL: "http://localhost:11434/v1" })` | Local Ollama via OpenAI-compatible API |
+
+**Vision pipeline:**
+
+When `visionEnabled` is true:
+1. `collectImageUrls()` / `collectAllImageUrls()` gather image URLs from work items (capped at 10 per item, 20 total)
+2. `resolveImageUrls()` fetches images in parallel, converting to base64 data URIs
+3. `fetchImageAsDataUri()` uses PAT-based Basic auth for ADO URLs (`dev.azure.com`, `visualstudio.com`), no auth for external URLs
+4. `isAdoUrl()` detects ADO-hosted images
+5. `guessMimeType()` determines MIME from URL extension (defaults to `image/png`)
+6. Resolved data URIs are sent as `image_url` content parts with `detail: "low"` to limit token usage
+7. Failed fetches are silently dropped — one bad image doesn't break the report
+
+**Summarize functions** (all take `CategorizedReportData`, client, model, optional `visionEnabled`):
+
+| Function | Output | Covers |
+|----------|--------|--------|
+| `summarizeExecutive()` | `{ executiveSummary, breakthroughs[], milestones[] }` | All items |
+| `summarizeProgress()` | `ProgressRow[]` | Completed + in-progress + bugs |
+| `summarizeMetrics()` | `{ s360Completed[], s360InProgress[], icmMetrics, releasesUpdate }` | S360 + ICM + rollout items |
+| `summarizeChallenges()` | `{ challenges[], mitigations[] }` | Risks + bugs |
+| `summarizeNextSteps()` | `UpcomingTask[]` | In-progress + new items |
+| `summarizeClientActions()` | `string[]` | Completed + in-progress items |
+| `summarizeMonitoringAndSupport()` | `{ monitoringUpdate, supportUpdate }` | Monitoring + support items |
+| `summarizeComparison()` | `{ analysis, table: ComparisonTableRow[] }` | Period comparison data |
+
+All summarize calls run in parallel via `Promise.all` in the report generator.
+
+### `src/refiner.ts` — Second-Pass LLM Refinement
+
+Takes raw summarizer output and runs a second LLM pass with editorial prompts to:
+- Cut filler words and consolidate redundant information
+- Cap list lengths (e.g., max 5 breakthroughs, 3 in-progress S360 items)
+- Sharpen language for report readers
+- Merge near-duplicate entries
+
+Each section has its own refinement prompt. Uses `temperature: 0.2` for consistency.
+
+### `src/template-engine.ts` — Template Population
+
+Populates a Markdown template (`template_report.md`) with report data.
+
+**Placeholder types:**
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| Scalar | `{{Key_Name}}` | `{{Team_Name}}`, `{{Executive_Summary_Text}}` |
+| Numbered bullets | `- {{Prefix_N}}` | `- {{Breakthrough_1}}`, `- {{Milestone_2}}` |
+| Table rows | Template rows with `{{Column}}` | Progress table, comparison table |
+
+The engine expands or contracts dynamic lists/tables to match actual data length. Leftover `{{...}}` placeholders are stripped in a final cleanup pass.
+
+### `src/agent.ts` — Interactive REPL Agent
+
+Conversational interface powered by LLM intent parsing.
+
+**Architecture:**
+
+```
+User input
+    │
+    ▼
+Intent Parser (LLM) ──▶ { action, params }
+    │
+    ▼
+Action Dispatcher
+    ├── generate_report  → full pipeline (fetch → categorize → summarize → refine → template → write)
+    ├── compare_months   → multi-month fetch → side-by-side comparison
+    ├── show_metrics     → category deep dive
+    ├── refine_section   → re-run refiner on cached data
+    ├── change_config    → runtime config override
+    ├── help             → print available commands
+    └── exit             → quit
+```
+
+**Session state:**
+- `config`: Current `ReportConfig` (mutable via `change_config`)
+- `llmClient`: Shared LLM client instance
+- `cachedPeriods`: `Map<startDate, { items, categorized }>` — avoids re-fetching ADO data
+- `lastReportPath`: Path of most recently generated report
+
+### `src/report-generator.ts` — Pipeline Orchestrator
+
+Runs the 7-step static generation pipeline:
+
+1. **Fetch** — `getAllWorkItems()` for current + previous month
+2. **Categorize** — `categorizeWorkItems()` for both periods
+3. **Compare** — `computePeriodMetrics()` + `comparePeriods()` for month-over-month deltas
+4. **Summarize** — 8 parallel `summarize*()` calls via `Promise.all`
+5. **Refine** — `refineAllSections()` second-pass polish
+6. **Populate** — `populateTemplate()` fills the Markdown template
+7. **Write** — Output to `{outputPath}` with month-year suffix
+
+## Data Flow
+
+```
+.env
+ │
+ ▼
+loadConfig() ──▶ ReportConfig
+                      │
+                      ▼
+              getAllWorkItems()
+              ┌───────┴───────┐
+              │  WIQL Query   │  ← filters: team members, types, states,
+              │  (ADO API)    │    tags, date range, area path
+              └───────┬───────┘
+                      │
+                      ▼
+              ADOWorkItem[]  (with comments + imageUrls)
+                      │
+                      ▼
+          categorizeWorkItems()
+                      │
+                      ▼
+          CategorizedReportData
+          ┌───────────┼───────────────┐
+          │           │               │
+          ▼           ▼               ▼
+    summarize*()  computeMetrics()  comparePeriods()
+    (8 parallel)
+          │           │               │
+          ▼           ▼               ▼
+    Raw sections  PeriodMetrics   PeriodComparison
+          │
+          ▼
+    refineAllSections()
+          │
+          ▼
+    populateTemplate()
+          │
+          ▼
+    report-{month}-{year}.md
+```
+
+## LLM Provider Architecture
+
+The `openai` SDK is used as a unified client for all three providers:
+
+```
+                     ┌────────────────────┐
+                     │   openai SDK       │
+                     │  (npm: openai)     │
+                     └─────────┬──────────┘
+              ┌────────────────┼────────────────┐
+              │                │                │
+              ▼                ▼                ▼
+        ┌──────────┐   ┌────────────┐   ┌──────────┐
+        │  OpenAI  │   │ AzureOpenAI│   │  Ollama  │
+        │  API     │   │  Endpoint  │   │ localhost │
+        └──────────┘   └────────────┘   │ :11434/v1│
+                                        └──────────┘
+```
+
+- **OpenAI:** Standard `new OpenAI({ apiKey })`
+- **Azure OpenAI:** `new AzureOpenAI({ endpoint, apiKey, apiVersion })` with dedicated class
+- **Ollama:** `new OpenAI({ baseURL: "http://localhost:11434/v1" })` — leverages OpenAI-compatible API
+
+All providers use `response_format: { type: "json_object" }` for structured output.
+
+## Vision Pipeline
+
+```
+ADO Work Item HTML
+       │
+       ▼
+extractImageUrls()          ← extractor.ts (at fetch time)
+       │
+       ▼
+imageUrls: string[]         ← stored on ADOWorkItem & WorkItemComment
+       │
+       ▼
+collectAllImageUrls()       ← summarizer.ts (at summarize time, cap: 20)
+       │
+       ▼
+resolveImageUrls()          ← parallel fetch + base64 encode
+  ├── isAdoUrl() → Basic auth with PAT
+  └── external   → no auth
+       │
+       ▼
+data:image/png;base64,...   ← inline data URIs
+       │
+       ▼
+image_url content parts     ← detail: "low" to limit tokens
+       │
+       ▼
+Chat Completion API         ← multimodal request
+```
+
+## Directory Structure
+
+```
+project-status-report-agent/
+├── src/
+│   ├── index.ts              CLI entry point (interactive / --static)
+│   ├── config.ts             Environment variable loader & validator
+│   ├── types.ts              All TypeScript interfaces
+│   ├── ado-client.ts         Azure DevOps WIQL client
+│   ├── extractor.ts          Categorization & HTML processing (pure functions)
+│   ├── summarizer.ts         LLM-powered section generation + vision
+│   ├── refiner.ts            Second-pass LLM refinement
+│   ├── template-engine.ts    Markdown template population
+│   ├── report-generator.ts   Pipeline orchestrator
+│   └── agent.ts              Interactive REPL agent
+├── test/
+│   ├── config.test.ts        Config loader tests (11 tests)
+│   ├── extractor.test.ts     Extractor tests (35 tests)
+│   └── template-engine.test.ts  Template engine tests (7 tests)
+├── dist/                     Compiled JS output
+├── output/                   Generated reports
+├── docs/
+│   ├── README.md             Usage documentation
+│   └── ARCHITECTURE.md       This file
+├── package.json
+├── tsconfig.json             ES2022, Node16, strict
+└── .env                      Configuration (not committed)
+```
+
+## Key Design Decisions
+
+1. **Composable WIQL builders** — Each filter dimension (team members, types, states, tags, dates) is a separate function that returns a clause string. This makes the query debuggable and extensible.
+
+2. **Tag-based categorization with OR logic** — Categories match multiple ADO tags (e.g., monitoring matches "Monitoring" OR "dev-test-ci" OR "pipeline-monitoring"). Items can appear in multiple categories.
+
+3. **Two-pass LLM summarization** — Raw summaries are generated first, then refined in a second pass. This separation lets each pass focus on its strength: completeness vs. conciseness.
+
+4. **Parallel summarization** — All 8 summarize functions run concurrently via `Promise.all`, reducing wall-clock time proportional to the slowest section (not the sum of all).
+
+5. **Vision as an opt-in overlay** — Image extraction, authenticated fetching, and multimodal content blocks are wired through the existing pipeline without changing the non-vision path. The `visionEnabled` flag gates all image behavior.
+
+6. **Unified LLM client via `openai` SDK** — A single SDK supports OpenAI, Azure OpenAI, and Ollama (local) through constructor configuration. No provider-specific code beyond client initialization.
+
+7. **Session caching in agent mode** — Fetched ADO data is cached by period start date. Subsequent commands reuse cached data, avoiding redundant API calls during a conversation.
+
+8. **Template engine with dynamic expansion** — Bullet lists and table rows expand/contract to match actual data. Leftover placeholders are cleaned up automatically.

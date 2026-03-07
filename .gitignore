@@ -2,3 +2,5 @@ dist/
 output/
 package-lock.json
 .env
+node_modules
+*.tgz

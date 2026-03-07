@@ -2,7 +2,35 @@
 
 AI-powered agent that fetches Azure DevOps work items, generates LLM-summarized sections, and produces formatted project status reports.
 
-![Sample Report Output](images/sample-output.png)
+![Sample Report Output](docs/images/sample-output.png)
+
+## Quick Start
+
+### Install as a global CLI
+
+```bash
+npm install -g project-status-report-agent
+```
+
+Then run from anywhere:
+
+```bash
+psr-agent              # interactive mode
+psr-agent --static     # one-shot report generation
+```
+
+### Or use in a project
+
+```bash
+npm install project-status-report-agent
+```
+
+```typescript
+import { loadConfig, generateReport } from "project-status-report-agent";
+
+const config = loadConfig();     // reads from .env
+await generateReport(config);    // generates the report
+```
 
 ## Features
 
@@ -124,7 +152,7 @@ node dist/index.js
 
 Interactive mode starts a conversational REPL with a `psr-agent>` prompt. The agent uses the configured LLM to parse your natural language input into structured intents, so you can issue commands conversationally. It maintains a session with cached ADO data to avoid re-fetching between commands.
 
-![Interactive Mode — help command](images/interactive-mode.png)
+![Interactive Mode — help command](docs/images/interactive-mode.png)
 
 **Available commands:**
 
