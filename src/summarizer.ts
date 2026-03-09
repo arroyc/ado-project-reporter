@@ -188,6 +188,7 @@ function itemsToContext(items: ADOWorkItem[], includeImages = false) {
     title: i.title,
     state: i.state,
     assignedTo: i.assignedTo,
+    areaPath: i.areaPath,
     tags: i.tags,
     description: stripHtml(i.description).slice(0, 500),
     completedDate: i.completedDate,
@@ -252,6 +253,7 @@ export async function summarizeExecutive(
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given a list of work items, produce a concise executive summary paragraph, a list of key breakthroughs,
 and a list of key milestones achieved during the reporting period.
+IMPORTANT: Use ONLY information from the provided work items. Do not invent, fabricate, or assume any details not present in the data. Every statement must be traceable to a specific work item. Use actual titles, area paths, and descriptions from the items.
 ${visionEnabled ? "Screenshots from work items are attached. Use any visual context (graphs, error screenshots, dashboards) to enrich your summary.\n" : ""}Respond ONLY with JSON in this format:
 {
   "executiveSummary": "...",
@@ -296,7 +298,8 @@ export async function summarizeProgress(
   }
 
   const systemPrompt = `You are a technical project manager writing a project status report.
-Given work items, produce a progress table. Group items by project area.
+Given work items, produce a progress table. Group items by their area path or logical grouping derived from the actual work item titles and tags.
+IMPORTANT: Use ONLY information from the provided work items. Do not invent, fabricate, or assume any details not present in the data. The "area" field must use actual project/area names from the work items, NOT generic labels like "Project A" or "Project B". The "description" must reflect actual work item content.
 Respond ONLY with JSON:
 {
   "rows": [
@@ -354,6 +357,7 @@ export async function summarizeMetrics(
 
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given S360 items, ICM/incident items, and rollout/release items, produce structured metrics.
+IMPORTANT: Use ONLY information from the provided work items. Do not invent, fabricate, or assume any details not present in the data. Every S360 completed/in-progress entry must directly correspond to an actual work item provided. If no items exist for a category, return an empty array — do not generate placeholder content.
 Respond ONLY with JSON:
 {
   "s360Completed": ["..."],
@@ -417,6 +421,7 @@ export async function summarizeChallenges(
 
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given risks, blockers, and bugs, produce a list of current challenges and corresponding mitigation plans.
+IMPORTANT: Use ONLY information from the provided work items. Do not invent, fabricate, or assume any details not present in the data. Each challenge must be directly derived from actual work items provided.
 Respond ONLY with JSON:
 {
   "challenges": ["..."],
@@ -455,6 +460,7 @@ export async function summarizeNextSteps(
 
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given new and in-progress work items, produce a table of upcoming tasks.
+IMPORTANT: Use ONLY information from the provided work items. Do not invent, fabricate, or assume any details not present in the data. Each task must correspond to an actual work item provided.
 Respond ONLY with JSON:
 {
   "tasks": [
@@ -488,6 +494,7 @@ export async function summarizeClientActions(
 
   const systemPrompt = `You are a technical project manager writing a project status report.
 Identify items that require client input, approval, or action.
+IMPORTANT: Use ONLY information from the provided work items. Do not invent, fabricate, or assume any details not present in the data. If no items clearly require client action, return an empty array.
 Respond ONLY with JSON:
 {
   "clientActions": ["..."]
@@ -524,6 +531,7 @@ export async function summarizeMonitoringAndSupport(
 
   const systemPrompt = `You are a technical project manager writing a project status report.
 Given monitoring-tagged and support-tagged work items, produce a summary for each category.
+IMPORTANT: Use ONLY information from the provided work items. Do not invent, fabricate, or assume any details not present in the data. Summaries must reference actual work item content, not generic placeholder text.
 Respond ONLY with JSON:
 {
   "monitoringUpdate": "Summary of monitoring activities and status.",

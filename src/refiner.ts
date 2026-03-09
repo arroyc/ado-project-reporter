@@ -108,6 +108,7 @@ Rules:
 - Limit the summary to 3-4 sentences max.
 - Breakthroughs and milestones: keep only the top 3-5 MOST impactful, merge duplicates, and write each as ONE concise line.
 - Remove any items that are routine/trivial.
+- NEVER add new information, project names, or details not present in the input. Only rephrase, condense, or remove.
 
 Respond ONLY with JSON (same schema as input):
 {
@@ -121,6 +122,7 @@ Rules:
 - S360 items: Group related items under a single concise bullet. Merge near-duplicates. Max 5 completed, 3 in-progress.
 - ICM metrics: Keep as-is (they are numeric).
 - Releases update: Condense to 1-2 sentences highlighting what shipped and any blockers.
+- NEVER add new information, project names, or details not present in the input. Only rephrase, condense, or remove.
 
 Respond ONLY with JSON (same schema as input):
 {
@@ -137,6 +139,7 @@ Rules:
 - Limit to 5 challenges maximum.
 - Each mitigation must be specific and actionable, not generic.
 - One mitigation per challenge, in corresponding order.
+- NEVER add new information, project names, or details not present in the input. Only rephrase, condense, or remove.
 
 Respond ONLY with JSON:
 {
@@ -149,6 +152,7 @@ Rules:
 - Each summary should be 2-3 sentences max.
 - Focus on: what was monitored, key findings, any incidents or gaps.
 - If the original is already concise, keep it.
+- NEVER add new information, project names, or details not present in the input. Only rephrase, condense, or remove.
 
 Respond ONLY with JSON:
 {
@@ -162,6 +166,7 @@ Rules:
 - Keep max 8 rows. Prioritize by impact.
 - Status must be exactly one of: On Track, At Risk, Delayed, Completed.
 - Description: one concise sentence per row.
+- NEVER add new rows, project names, or details not present in the input. Only rephrase, condense, merge, or remove existing rows.
 
 Respond ONLY with JSON:
 {
