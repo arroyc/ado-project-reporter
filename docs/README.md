@@ -17,6 +17,7 @@ Then run from anywhere:
 ```bash
 psr-agent              # interactive mode
 psr-agent --static     # one-shot report generation
+psr-agent setup        # interactive Ollama setup wizard
 ```
 
 ### Or use in a project
@@ -227,6 +228,25 @@ psr-agent> show all metrics in detail
 
 psr-agent> exit
 ```
+
+### Setup Command
+
+```bash
+npx psr-agent setup
+```
+
+The setup command is an interactive wizard that configures your local Ollama environment:
+
+1. **Checks for Ollama** — verifies Ollama is installed on your system (see [Prerequisites](#prerequisites) to install it)
+2. **Model selection** — choose which model to pull:
+   - `mistral` — fast, general-purpose text analysis (recommended)
+   - `phi3` — lightweight, good for limited hardware
+   - `llava:13b` — vision-enabled for image/chart analysis (~8 GB)
+3. **Generates `.env`** — creates a `.env` file pre-configured for Ollama with your chosen model (asks before overwriting an existing `.env`)
+
+After setup completes, fill in your Azure DevOps credentials (`ADO_ORG_URL`, `ADO_PAT`, `ADO_PROJECT`) in the generated `.env`.
+
+The setup wizard also runs automatically during `npm install`. Skip it with `SKIP_OLLAMA_SETUP=true npm install`.
 
 ### Static Mode (one-shot)
 

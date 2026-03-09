@@ -9,6 +9,7 @@ node_modules
 *.tgz
 .cache/
 coverage/
+__azurite_db_*
 
 # Copilot: exclude Copilot config from version control
 .copilot/

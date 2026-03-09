@@ -47,6 +47,21 @@ npm install
 npm run build
 ```
 
+### Step 1b: Run Setup (Ollama users)
+
+If you're using Ollama as your LLM provider, run the interactive setup wizard:
+
+```
+npx psr-agent setup
+```
+
+This will:
+1. Verify Ollama is installed (install it first from [ollama.com](https://ollama.com) — see [Prerequisites](#prerequisites))
+2. Let you choose a model to pull (mistral, phi3, or llava:13b)
+3. Auto-generate a `.env` file configured for Ollama with your chosen model
+
+The setup also runs automatically during `npm install`. You can skip it with `SKIP_OLLAMA_SETUP=true npm install` and configure manually instead.
+
 ### Step 2: Create Your Configuration File
 
 Create a file named `.env` in the project root folder. This file holds all your settings. Start with this template and fill in your values:
