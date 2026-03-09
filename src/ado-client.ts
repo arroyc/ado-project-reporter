@@ -40,6 +40,44 @@ export function createConnection(config: ReportConfig): azdev.WebApi {
   return new azdev.WebApi(config.adoOrgUrl, authHandler);
 }
 
+/**
+ * Detect whether an error indicates an expired or invalid PAT and throw
+ * a clear, actionable message instead of a cryptic SDK error.
+ */
+function throwIfAuthError(error: unknown): never {
+  const statusCode =
+    (error as { statusCode?: number }).statusCode ??
+    (error as { status?: number }).status;
+  const message = error instanceof Error ? error.message : String(error);
+  const lowerMsg = message.toLowerCase();
+
+  if (
+    statusCode === 401 ||
+    statusCode === 203 ||
+    lowerMsg.includes("unauthorized") ||
+    lowerMsg.includes("access denied") ||
+    lowerMsg.includes("authentication") ||
+    lowerMsg.includes("pat") ||
+    lowerMsg.includes("token")
+  ) {
+    throw new Error(
+      `Azure DevOps authentication failed (HTTP ${statusCode ?? "?"}).\n` +
+      `Your Personal Access Token (PAT) may be expired or invalid.\n` +
+      `→ Generate a new PAT at: https://dev.azure.com/<your-org>/_usersSettings/tokens\n` +
+      `→ Update ADO_PAT in your .env file and restart the agent.`
+    );
+  }
+  if (statusCode === 403 || lowerMsg.includes("forbidden")) {
+    throw new Error(
+      `Azure DevOps access forbidden (HTTP 403).\n` +
+      `Your PAT may lack the required scopes (Work Items: Read).\n` +
+      `→ Check PAT permissions at: https://dev.azure.com/<your-org>/_usersSettings/tokens\n` +
+      `→ Required scopes: Work Items (Read), Project and Team (Read).`
+    );
+  }
+  throw error;
+}
+
 // ---------------------------------------------------------------------------
 // WIQL builders
 // ---------------------------------------------------------------------------
@@ -377,13 +415,23 @@ export async function getAllWorkItems(
     console.log(`Querying ADO work items (${scopeDesc})...`);
   }
 
-  const ids = await queryWorkItems(config, connection);
+  let ids: number[];
+  try {
+    ids = await queryWorkItems(config, connection);
+  } catch (error) {
+    throwIfAuthError(error);
+  }
   if (config.verbose) {
     console.log(`Found ${ids.length} work item(s).`);
   }
   if (ids.length === 0) return [];
 
-  const items = await fetchWorkItemDetails(connection, ids);
+  let items: ADOWorkItem[];
+  try {
+    items = await fetchWorkItemDetails(connection, ids);
+  } catch (error) {
+    throwIfAuthError(error);
+  }
   if (config.verbose) {
     console.log(`Fetching comments for ${items.length} work items (concurrency: ${config.concurrency})...`);
   }
@@ -426,7 +474,12 @@ export async function getAllWorkItemsByCategory(
     );
   }
 
-  const ids = await queryWorkItemsByCategory(config, connection, tags);
+  let ids: number[];
+  try {
+    ids = await queryWorkItemsByCategory(config, connection, tags);
+  } catch (error) {
+    throwIfAuthError(error);
+  }
   if (config.verbose) {
     console.log(
       `Found ${ids.length} work item(s) for category tags: ${tags.join(", ")}.`
@@ -434,7 +487,12 @@ export async function getAllWorkItemsByCategory(
   }
   if (ids.length === 0) return [];
 
-  const items = await fetchWorkItemDetails(connection, ids);
+  let items: ADOWorkItem[];
+  try {
+    items = await fetchWorkItemDetails(connection, ids);
+  } catch (error) {
+    throwIfAuthError(error);
+  }
   if (config.verbose) {
     console.log(`Fetching comments for ${items.length} work items (concurrency: ${config.concurrency})...`);
   }

@@ -7,6 +7,7 @@
  */
 import OpenAI, { AzureOpenAI } from "openai";
 import { stripHtml } from "./extractor.js";
+import { wrapLLMError } from "./llm-errors.js";
 import type {
   ReportConfig,
   CategorizedReportData,
@@ -90,15 +91,20 @@ async function llmCall(
     userContent = userPrompt;
   }
 
-  const response = await client.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userContent as string | ChatContentPart[] },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.3,
-  });
+  let response;
+  try {
+    response = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent as string | ChatContentPart[] },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+  } catch (error) {
+    wrapLLMError(error);
+  }
   return response.choices[0]?.message?.content ?? "{}";
 }
 

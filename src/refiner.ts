@@ -7,6 +7,7 @@
  */
 import type OpenAI from "openai";
 import type { AzureOpenAI } from "openai";
+import { wrapLLMError } from "./llm-errors.js";
 import type {
   ProgressRow,
   ICMMetrics,
@@ -86,15 +87,20 @@ async function refineLLM(
   systemPrompt: string,
   content: string
 ): Promise<string> {
-  const response = await client.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.2,
-  });
+  let response;
+  try {
+    response = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    });
+  } catch (error) {
+    wrapLLMError(error);
+  }
   return response.choices[0]?.message?.content ?? "{}";
 }
 

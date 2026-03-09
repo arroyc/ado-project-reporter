@@ -37,6 +37,7 @@ import { populateTemplate } from "./template-engine.js";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, extname, basename } from "node:path";
 import { getPackageVersion } from "./version.js";
+import { wrapLLMError } from "./llm-errors.js";
 import type OpenAI from "openai";
 import type { AzureOpenAI } from "openai";
 import type {
@@ -105,11 +106,67 @@ Examples:
 - "show ado tags" → { "action": "list_tags", "params": {} }
 - "bye" → { "action": "exit", "params": {} }`;
 
+/**
+ * Regex-based fallback for common commands when the LLM is unavailable.
+ */
+function parseIntentLocal(input: string): Intent | null {
+  const lower = input.toLowerCase().trim();
+
+  // generate report [for <month> <year>] [with/without comparison]
+  const genMatch = lower.match(
+    /^generate\s+(?:the\s+)?report(?:\s+for\s+(\w+)(?:\s+(\d{4}))?)?(?:\s+(with|without)\s+(?:previous\s+month(?:'s)?\s+)?comparison)?$/
+  );
+  if (genMatch) {
+    const params: Record<string, string> = {};
+    if (genMatch[1]) {
+      const monthNames: Record<string, string> = {
+        january: "01", february: "02", march: "03", april: "04",
+        may: "05", june: "06", july: "07", august: "08",
+        september: "09", october: "10", november: "11", december: "12",
+        jan: "01", feb: "02", mar: "03", apr: "04",
+        jun: "06", jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+      };
+      const mm = monthNames[genMatch[1]];
+      if (mm) {
+        const year = genMatch[2] || new Date().getFullYear().toString();
+        params.startDate = `${year}-${mm}-01`;
+        const endMonth = parseInt(mm, 10) + 1;
+        if (endMonth <= 12) {
+          params.endDate = `${year}-${String(endMonth).padStart(2, "0")}-01`;
+        } else {
+          params.endDate = `${parseInt(year, 10) + 1}-01-01`;
+        }
+      }
+    }
+    if (genMatch[3] === "with") params.comparison = "true";
+    if (genMatch[3] === "without") params.comparison = "false";
+    return { action: "generate_report", params };
+  }
+
+  // compare last N months
+  const compMatch = lower.match(/^compare\s+(?:the\s+)?(?:last\s+)?(\d+)\s+months?$/);
+  if (compMatch) {
+    return { action: "compare_months", params: { months: compMatch[1] } };
+  }
+
+  // show metrics
+  const metricMatch = lower.match(/^show\s+(?:me\s+)?(?:all\s+)?(\w+)?\s*metrics?(?:\s+in\s+detail)?$/);
+  if (metricMatch) {
+    return { action: "show_metrics", params: { category: metricMatch[1] || "all" } };
+  }
+
+  return null;
+}
+
 async function parseIntent(
   input: string,
   client: LLMClient,
   model: string
 ): Promise<Intent> {
+  // Try local pattern matching first — instant, no LLM call needed
+  const local = parseIntentLocal(input);
+  if (local) return local;
+
   try {
     const response = await client.chat.completions.create({
       model,
@@ -122,11 +179,21 @@ async function parseIntent(
     });
     const raw = response.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(raw);
+    const action = parsed.action ?? "unknown";
+    if (action === "unknown") {
+      console.log(`  ⚠️  LLM could not determine intent (raw: ${raw.slice(0, 200)})`);
+    }
     return {
-      action: parsed.action ?? "unknown",
+      action,
       params: parsed.params ?? {},
     };
-  } catch {
+  } catch (error: unknown) {
+    try {
+      wrapLLMError(error);
+    } catch (wrapped: unknown) {
+      const message = wrapped instanceof Error ? wrapped.message : String(wrapped);
+      console.error(`\n  ⚠️  LLM intent parsing failed: ${message}`);
+    }
     return { action: "unknown", params: {} };
   }
 }
