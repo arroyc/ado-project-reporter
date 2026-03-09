@@ -121,7 +121,7 @@ function buildFullSections(
     dataSource: "Azure DevOps",
     generatedTimestamp: new Date().toISOString(),
     generatedBy: "Project Status Report Agent",
-    version: "1.2.0",
+    version: "1.3.0",
     comparisonAnalysis: enableComparison ? "Comparison analysis." : undefined,
     comparisonTable: enableComparison
       ? [

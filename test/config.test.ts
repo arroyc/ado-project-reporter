@@ -90,7 +90,7 @@ describe("loadConfig", () => {
     expect(config.adoPat).toBe("test-pat-token");
     expect(config.adoProject).toBe("TestProject");
     expect(config.llmApiKey).toBe("test-llm-key");
-    expect(config.llmModel).toBe("llava:13b");
+    expect(config.llmModel).toBe("mistral");
     expect(config.teamName).toBe("TestTeam");
     expect(config.clientName).toBe("TestClient");
     expect(config.preparedBy).toBe("Tester");

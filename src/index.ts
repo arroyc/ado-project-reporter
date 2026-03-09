@@ -6,6 +6,7 @@
  *   node dist/index.js               # interactive agent mode
  *   node dist/index.js --static      # one-shot report generation
  *   node dist/index.js -s            # one-shot report generation (short)
+ *   node dist/index.js setup         # interactive Ollama setup
  */
 import { loadConfig } from "./config.js";
 import { generateReport } from "./report-generator.js";
@@ -123,6 +124,23 @@ async function ensureOllamaServer(): Promise<void> {
 }
 
 const args = process.argv.slice(2);
+
+// Handle `psr-agent setup` before anything else — no server needed
+if (args[0] === "setup") {
+  // Run setup as a child process so readline prompts work correctly
+  // (top-level await in this ESM module interferes with readline)
+  const { execSync: execSetup } = await import("node:child_process");
+  const { fileURLToPath: toPath } = await import("node:url");
+  const { dirname: dirOf, resolve: resolvePath } = await import("node:path");
+  const setupScript = resolvePath(dirOf(toPath(import.meta.url)), "setup-cli.js");
+  try {
+    execSetup(`node "${setupScript}"`, { stdio: "inherit", cwd: process.cwd() });
+  } catch {
+    // setup-cli exits non-zero when Ollama not installed — that's expected
+  }
+  process.exit(0);
+}
+
 const isStatic = args.includes("--static") || args.includes("-s");
 
 if (args.includes("--clear") || args.includes("-c")) {

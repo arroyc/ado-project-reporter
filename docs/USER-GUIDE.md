@@ -23,12 +23,16 @@ The Project Status Report Agent connects to your Azure DevOps project, pulls wor
 
 Before you begin, you'll need:
 
-1. **Azure DevOps access** — A Personal Access Token (PAT) with read access to your project's work items
-2. **An AI provider** — One of the following:
+1. **Node.js 20 or later** — Download from [nodejs.org](https://nodejs.org)
+2. **Ollama** (for local LLM) — Install from [ollama.com](https://ollama.com) before running setup:
+   - **Windows:** `winget install Ollama.Ollama`
+   - **macOS:** `brew install ollama`
+   - **Linux:** `curl -fsSL https://ollama.com/install.sh | sh`
+3. **Azure DevOps access** — A Personal Access Token (PAT) with read access to your project's work items
+4. **An AI provider** — One of the following:
    - An OpenAI API key, or
    - An Azure OpenAI endpoint and key, or
-   - Ollama installed locally (free, runs on your machine)
-3. **Node.js 18 or later** — Download from [nodejs.org](https://nodejs.org)
+   - Ollama (installed in step 2 above)
 
 ---
 
@@ -101,7 +105,7 @@ Your report will be saved to the `output/` folder.
 | `ADO_AREA_PATH` | Filter to a specific area path | *(all areas)* |
 | `ADO_TEAM_MEMBERS` | Comma-separated list of team member names to include | *(all members)* |
 | `LLM_PROVIDER` | Which AI provider to use: `openai`, `azure-openai`, or `ollama` | `openai` |
-| `LLM_MODEL` | Which AI model to use | `llava:13b` |
+| `LLM_MODEL` | Which AI model to use | `mistral` |
 | `LLM_ENDPOINT` | Custom endpoint URL (required for Azure OpenAI) | — |
 | `LLM_API_VERSION` | API version for Azure OpenAI | `2024-12-01-preview` |
 | `TEAM_NAME` | Your team's name (appears in the report header) | `Engineering Team` |
@@ -180,7 +184,13 @@ Everything else works the same — just swap the provider settings.
 
 You want to run everything locally without sending data to the cloud.
 
-Ollama is **automatically installed and configured** during `npm install` — the postinstall script installs Ollama, pulls the `phi3`, `mistral`, and `llava:13b` models, and when you run the agent with `LLM_PROVIDER=ollama`, the server is auto-started.
+Ollama is the recommended local LLM runtime and must be installed as a prerequisite (see [Prerequisites](#prerequisites)). The interactive setup runs automatically during `npm install` — it checks for Ollama, lets you choose a model, and auto-generates your `.env` with the right LLM settings:
+
+- **mistral** — fast, general-purpose text analysis (recommended)
+- **phi3** — lightweight, good for limited hardware
+- **llava:13b** — vision-enabled for image/chart analysis (~8 GB)
+
+After setup, fill in your ADO credentials (`ADO_ORG_URL`, `ADO_PAT`, `ADO_PROJECT`) in the generated `.env`. You can Ctrl+C at any time. Re-run setup any time with `npx psr-agent setup`.
 
 1. Configure:
 
@@ -192,7 +202,7 @@ LLM_MODEL=phi3
 
 No API key is needed. The agent auto-starts Ollama and connects at `http://localhost:11434`.
 
-> If auto-install didn't work during `npm install`, install Ollama manually from [ollama.com](https://ollama.com) and run `ollama pull phi3`.
+> Ollama must be installed before running the agent. Install from [ollama.com](https://ollama.com) and run `ollama pull phi3`.
 
 > **Tip:** You can also start from `environment-examples/.env.mistral.example` or `environment-examples/.env.phi3.example` for pre-configured Ollama setups with those models.
 

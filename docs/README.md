@@ -105,23 +105,38 @@ docs/              Documentation
 
 Instead of using Azure OpenAI (which requires an Azure subscription, deployed model, and API key), you can run the entire agent locally using [Ollama](https://ollama.com/) — a free, open-source tool that runs LLMs on your own machine.
 
-#### Automatic setup
+#### Interactive setup
 
-Ollama is **automatically installed and configured** during `npm install`:
+Ollama is the recommended local LLM runtime. After installing Ollama (see below), the setup wizard walks you through model selection and `.env` generation.
 
-1. **Auto-install** — The postinstall script detects your OS and installs Ollama automatically (via `winget` on Windows, `brew` on macOS, `curl` installer on Linux). If auto-install fails, it prints manual instructions.
-2. **Auto-pull models** — The `phi3`, `mistral`, and `llava:13b` models are automatically pulled during install.
-3. **Auto-start server** — When you run the agent with `LLM_PROVIDER=ollama`, it automatically starts `ollama serve` as a background process, waits for it to become responsive, and cleans it up on exit. No need to manually run `ollama serve`.
+1. **Install Ollama** (prerequisite — must be done first):
+   - **Windows:** `winget install Ollama.Ollama`
+   - **macOS:** `brew install ollama`
+   - **Linux:** `curl -fsSL https://ollama.com/install.sh | sh`
 
-> If you need additional models, you can pull them manually with `ollama pull <model>`.
+2. **Install the package** — Setup runs automatically during `npm install`:
+   ```bash
+   npm install @arroyc/project-status-report-agent
+   ```
+   The setup checks for Ollama, lets you choose which model to pull, and auto-generates your `.env` file:
+   - **mistral** — fast, general-purpose text analysis (recommended)
+   - **phi3** — lightweight, good for limited hardware
+   - **llava:13b** — vision-enabled for image/chart analysis (~8 GB)
+
+   After setup, fill in your ADO credentials (`ADO_ORG_URL`, `ADO_PAT`, `ADO_PROJECT`) in the generated `.env`.
+   You can Ctrl+C at any time.
+3. **Re-run setup any time** — `npx psr-agent setup` to change models or regenerate `.env`.
+4. **Or set up manually** — run `ollama pull <model>` and copy an environment-examples template to `.env`.
+
+> Skip the postinstall setup entirely with: `SKIP_OLLAMA_SETUP=true npm install`
 
 #### Compatible models
 
 | Model | Size | Notes |
 |-------|------|-------|
-| `llava:13b` | ~8 GB | **Recommended.** Vision-capable (LLaVA 1.6), great summary quality |
-| `phi3` | ~2 GB | Text-only, auto-pulled during install, lightweight |
-| `mistral` | ~4 GB | Text-only, auto-pulled during install, fast |
+| `mistral` | ~4 GB | **Default.** Text-only, fast — best for general text analysis |
+| `phi3` | ~2 GB | Text-only, lightweight — good for limited hardware |
+| `llava:13b` | ~8 GB | Vision-capable (LLaVA 1.6) — required for image/chart analysis |
 | `llama3.1:8b` | ~4.7 GB | Text-only, good quality, lower resource usage |
 | `llama3:70b` | ~40 GB | Text-only, highest quality but requires significant RAM/VRAM |
 
@@ -256,7 +271,7 @@ All configuration is via environment variables (loaded from `.env`):
 | `LLM_PROVIDER` | No | `openai`, `azure-openai`, or `ollama` (default: `openai`) |
 | `LLM_API_KEY` | Yes* | OpenAI / Azure OpenAI API key (*not required for Ollama) |
 | `LLM_ENDPOINT` | No | LLM API endpoint (required for `azure-openai` and `ollama`, e.g. `http://localhost:11434/v1`) |
-| `LLM_MODEL` | No | Model name (default: `llava:13b`) |
+| `LLM_MODEL` | No | Model name (default: `mistral`) |
 | `LLM_API_VERSION` | No | Azure OpenAI API version (default: `2024-12-01-preview`) |
 | `VISION_ENABLED` | No | Attach work item images to LLM calls (`true`/`false`) |
 | **Category Tag Mappings** | | |

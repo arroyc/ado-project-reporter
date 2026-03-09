@@ -22,7 +22,7 @@ The Project Status Report Agent is a TypeScript/Node.js application that fetches
 
 **Interactive mode:** `index.ts` → `agent.ts` starts a REPL. The agent parses user intent via LLM and dispatches actions (generate, compare months, show metrics, refine, change config).
 
-**Ollama auto-management:** When `LLM_PROVIDER=ollama`, `index.ts` calls `ensureOllamaServer()` which auto-starts `ollama serve` as a detached background process, waits for it to become responsive, and registers cleanup handlers to terminate it on exit. Additionally, the `scripts/postinstall.js` script auto-installs Ollama (via `winget`/`brew`/`curl`) and pulls the `phi3`, `mistral`, and `llava:13b` models during `npm install`.
+**Ollama auto-management:** When `LLM_PROVIDER=ollama`, `index.ts` calls `ensureOllamaServer()` which auto-starts `ollama serve` as a detached background process, waits for it to become responsive, and registers cleanup handlers to terminate it on exit. The `scripts/postinstall.js` script checks if Ollama is installed and which models are available, printing clear setup guidance — it never downloads or installs anything automatically. Users install Ollama and pull models (`phi3`, `mistral`, optionally `llava:13b`) manually.
 
 ## Source Modules
 

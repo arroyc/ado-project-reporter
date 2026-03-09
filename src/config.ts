@@ -158,7 +158,7 @@ export function loadConfig(): ReportConfig {
       (process.env.LLM_PROVIDER as "azure-openai" | "openai" | "ollama") || "openai",
     llmEndpoint: process.env.LLM_ENDPOINT || undefined,
     llmApiKey: process.env.LLM_API_KEY || (isOllama ? "ollama" : ""),
-    llmModel: process.env.LLM_MODEL || "llava:13b",
+    llmModel: process.env.LLM_MODEL || "mistral",
     llmApiVersion: process.env.LLM_API_VERSION || undefined,
 
     teamName: process.env.TEAM_NAME || "Engineering Team",
