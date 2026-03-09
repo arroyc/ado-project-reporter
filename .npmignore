@@ -12,6 +12,7 @@ tsconfig.json
 output/
 coverage/
 node_modules/
+.cache/
 
 # Editor & OS
 .vscode/
@@ -19,3 +20,12 @@ node_modules/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Copilot
+.copilot/
+
+# Squad & CI
+.squad/
+.squad-workstream
+.github/
+.gitattributes

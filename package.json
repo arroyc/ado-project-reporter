@@ -1,6 +1,6 @@
 {
   "name": "@arroyc/project-status-report-agent",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AI-powered Project Status Report Agent — fetches Azure DevOps data, generates LLM-summarized reports",
   "type": "module",
   "main": "dist/index.js",
@@ -16,11 +16,12 @@
   },
   "files": [
     "dist",
+    "scripts/postinstall.js",
     "docs/README.md",
-    ".env.azure-openai.example",
-    ".env.ollama.example"
+    "environment-examples"
   ],
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "build": "tsc",
     "start": "node dist/index.js",
     "start:static": "node dist/index.js --static",
@@ -59,7 +60,7 @@
     "openai": "^4.86.2"
   },
   "devDependencies": {
-    "@bradygaster/squad-cli": "^0.8.20",
+    "@bradygaster/squad-cli": "^0.8.25",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^3.2.4",

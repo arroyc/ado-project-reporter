@@ -12,7 +12,6 @@ const REQUIRED_ENV: Record<string, string> = {
   ADO_PROJECT: "TestProject",
   LLM_PROVIDER: "azure-openai",
   LLM_API_KEY: "test-llm-key",
-  LLM_MODEL: "gpt-4o",
   TEAM_NAME: "TestTeam",
   CLIENT_NAME: "TestClient",
   PREPARED_BY: "Tester",
@@ -36,6 +35,7 @@ beforeEach(() => {
   delete process.env.ADO_REQUIRED_TAGS;
   delete process.env.ADO_WORK_ITEM_TYPES;
   delete process.env.ADO_STATES;
+  delete process.env.LLM_MODEL;
   delete process.env.LLM_ENDPOINT;
   delete process.env.LLM_API_VERSION;
   delete process.env.OUTPUT_PATH;
@@ -90,7 +90,7 @@ describe("loadConfig", () => {
     expect(config.adoPat).toBe("test-pat-token");
     expect(config.adoProject).toBe("TestProject");
     expect(config.llmApiKey).toBe("test-llm-key");
-    expect(config.llmModel).toBe("gpt-4o");
+    expect(config.llmModel).toBe("llava:13b");
     expect(config.teamName).toBe("TestTeam");
     expect(config.clientName).toBe("TestClient");
     expect(config.preparedBy).toBe("Tester");

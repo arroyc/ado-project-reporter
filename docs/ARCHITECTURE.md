@@ -22,11 +22,14 @@ The Project Status Report Agent is a TypeScript/Node.js application that fetches
 
 **Interactive mode:** `index.ts` → `agent.ts` starts a REPL. The agent parses user intent via LLM and dispatches actions (generate, compare months, show metrics, refine, change config).
 
+**Ollama auto-management:** When `LLM_PROVIDER=ollama`, `index.ts` calls `ensureOllamaServer()` which auto-starts `ollama serve` as a detached background process, waits for it to become responsive, and registers cleanup handlers to terminate it on exit. Additionally, the `scripts/postinstall.js` script auto-installs Ollama (via `winget`/`brew`/`curl`) and pulls the `phi3`, `mistral`, and `llava:13b` models during `npm install`.
+
 ## Source Modules
 
 ### `src/index.ts` — CLI Entry Point
 
 - Parses `--static` / `-s` flag
+- Calls `ensureOllamaServer()` before entering either mode — when `LLM_PROVIDER=ollama`, this auto-starts `ollama serve` as a detached child process, polls until the server responds at `http://localhost:11434`, and registers cleanup handlers (`exit`, `SIGINT`, `SIGTERM`) to terminate the process on shutdown
 - Static mode: calls `generateReport(config)`
 - Interactive mode: calls `startAgent()`
 - Re-exports all public types for library consumers
@@ -338,7 +341,7 @@ The `openai` SDK is used as a unified client for all three providers:
 
 - **OpenAI:** Standard `new OpenAI({ apiKey })`
 - **Azure OpenAI:** `new AzureOpenAI({ endpoint, apiKey, apiVersion })` with dedicated class
-- **Ollama:** `new OpenAI({ baseURL: "http://localhost:11434/v1" })` — leverages OpenAI-compatible API
+- **Ollama:** `new OpenAI({ baseURL: "http://localhost:11434/v1" })` — leverages OpenAI-compatible API. The Ollama server is auto-started by `ensureOllamaServer()` in `index.ts` when `LLM_PROVIDER=ollama`, so no manual `ollama serve` is required.
 
 All providers use `response_format: { type: "json_object" }` for structured output.
 
@@ -375,8 +378,10 @@ Chat Completion API         ← multimodal request
 
 ```
 project-status-report-agent/
+├── scripts/
+│   └── postinstall.js            Auto-installs Ollama + pulls phi3/mistral models
 ├── src/
-│   ├── index.ts              CLI entry point (interactive / --static)
+│   ├── index.ts              CLI entry point (interactive / --static / Ollama auto-start)
 │   ├── config.ts             Environment variable loader & validator
 │   ├── types.ts              All TypeScript interfaces
 │   ├── ado-client.ts         Azure DevOps WIQL client

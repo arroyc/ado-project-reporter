@@ -80,7 +80,13 @@ docs/              Documentation
    npm install
    ```
 
-2. Copy `.env.azure-openai.example` or `.env.ollama.example` to `.env` and fill in your credentials:
+2. Copy an example config from `environment-examples/` to `.env` and fill in your credentials:
+   ```bash
+   cp environment-examples/.env.azure-openai.example .env   # Azure OpenAI
+   cp environment-examples/.env.ollama.example .env         # Ollama (llava:13b)
+   cp environment-examples/.env.mistral.example .env        # Ollama (mistral)
+   cp environment-examples/.env.phi3.example .env           # Ollama (phi3)
+   ```
    ```
    ADO_ORG_URL=https://dev.azure.com/yourorg
    ADO_PAT=your-personal-access-token
@@ -99,32 +105,24 @@ docs/              Documentation
 
 Instead of using Azure OpenAI (which requires an Azure subscription, deployed model, and API key), you can run the entire agent locally using [Ollama](https://ollama.com/) — a free, open-source tool that runs LLMs on your own machine.
 
-> **Important:** Installing the Ollama desktop application alone is **not enough**. Ollama is a model runner — it does not ship with any models out of the box. You must explicitly pull (download) a model before the agent can use it. Additionally, cloud-hosted models that may appear in the Ollama desktop UI are **not accessible via the local API** — only models you have pulled locally will work.
+#### Automatic setup
 
-#### 1. Install Ollama
+Ollama is **automatically installed and configured** during `npm install`:
 
-- **Windows**: Download the installer from [ollama.com/download](https://ollama.com/download)
-- **macOS**: `brew install ollama`
-- **Linux**: `curl -fsSL https://ollama.com/install.sh | sh`
+1. **Auto-install** — The postinstall script detects your OS and installs Ollama automatically (via `winget` on Windows, `brew` on macOS, `curl` installer on Linux). If auto-install fails, it prints manual instructions.
+2. **Auto-pull models** — The `phi3`, `mistral`, and `llava:13b` models are automatically pulled during install.
+3. **Auto-start server** — When you run the agent with `LLM_PROVIDER=ollama`, it automatically starts `ollama serve` as a background process, waits for it to become responsive, and cleans it up on exit. No need to manually run `ollama serve`.
 
-#### 2. Pull a model (required)
+> If you need additional models, you can pull them manually with `ollama pull <model>`.
 
-After installing Ollama, you **must** pull a model before using the agent:
-
-```bash
-# Recommended — llava:13b (vision-capable, best for local testing)
-ollama pull llava:13b
-```
-
-`llava:13b` is the **recommended model for local testing** — it supports both text and vision (image) inputs, produces high-quality summaries, and runs well on machines with 16 GB+ RAM.
-
-Other compatible models:
+#### Compatible models
 
 | Model | Size | Notes |
 |-------|------|-------|
 | `llava:13b` | ~8 GB | **Recommended.** Vision-capable (LLaVA 1.6), great summary quality |
+| `phi3` | ~2 GB | Text-only, auto-pulled during install, lightweight |
+| `mistral` | ~4 GB | Text-only, auto-pulled during install, fast |
 | `llama3.1:8b` | ~4.7 GB | Text-only, good quality, lower resource usage |
-| `mistral` | ~4 GB | Text-only, fast and lightweight |
 | `llama3:70b` | ~40 GB | Text-only, highest quality but requires significant RAM/VRAM |
 
 You can verify pulled models with:
@@ -133,17 +131,7 @@ You can verify pulled models with:
 ollama list
 ```
 
-#### 3. Start the Ollama server
-
-```bash
-ollama serve
-```
-
-By default this runs on `http://localhost:11434`. Keep this running in a separate terminal.
-
-> On Windows, the Ollama desktop app starts the server automatically on launch — you can skip this step if Ollama is already running in the system tray.
-
-#### 4. Configure `.env` for Ollama
+#### Configure `.env` for Ollama
 
 ```
 # ── LLM (Local — Ollama) ───────────────────────────────────────────────
@@ -156,11 +144,11 @@ VISION_ENABLED=true          # set to true when using a vision model like llava
 
 All other settings (ADO credentials, reporting period, team info, etc.) remain the same as the cloud setup.
 
-#### 5. Build and run
+#### Build and run
 
 ```bash
 npm run build
-npm start
+npx psr-agent
 ```
 
 > **Note:** Ollama runs inference locally, so generation speed depends on your hardware. A machine with a GPU will be significantly faster. The agent works the same way regardless of provider — only the LLM backend differs.
@@ -177,7 +165,7 @@ The agent supports two execution modes: **Interactive** and **Static**. Both mod
 ### Interactive Mode (default)
 
 ```bash
-npm start
+npx psr-agent
 # or explicitly:
 node dist/index.js
 ```
@@ -228,7 +216,7 @@ psr-agent> exit
 ### Static Mode (one-shot)
 
 ```bash
-npm run start:static
+npx psr-agent --static
 # or explicitly:
 node dist/index.js --static
 node dist/index.js -s
@@ -268,7 +256,7 @@ All configuration is via environment variables (loaded from `.env`):
 | `LLM_PROVIDER` | No | `openai`, `azure-openai`, or `ollama` (default: `openai`) |
 | `LLM_API_KEY` | Yes* | OpenAI / Azure OpenAI API key (*not required for Ollama) |
 | `LLM_ENDPOINT` | No | LLM API endpoint (required for `azure-openai` and `ollama`, e.g. `http://localhost:11434/v1`) |
-| `LLM_MODEL` | No | Model name (default: `gpt-4o`) |
+| `LLM_MODEL` | No | Model name (default: `llava:13b`) |
 | `LLM_API_VERSION` | No | Azure OpenAI API version (default: `2024-12-01-preview`) |
 | `VISION_ENABLED` | No | Attach work item images to LLM calls (`true`/`false`) |
 | **Category Tag Mappings** | | |

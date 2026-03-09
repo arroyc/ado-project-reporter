@@ -9,3 +9,12 @@ node_modules
 *.tgz
 .cache/
 coverage/
+
+# Copilot: exclude Copilot config from version control
+.copilot/
+
+# Squad: exclude all squad artifacts from version control
+.squad/
+.squad-workstream
+.github/workflows/squad-*
+.github/agents/squad.agent.md

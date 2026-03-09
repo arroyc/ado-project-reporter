@@ -73,7 +73,7 @@ PREPARED_BY=Your Name
 Run in one-shot mode:
 
 ```
-npm run start:static
+npx psr-agent --static
 ```
 
 Your report will be saved to the `output/` folder.
@@ -101,7 +101,7 @@ Your report will be saved to the `output/` folder.
 | `ADO_AREA_PATH` | Filter to a specific area path | *(all areas)* |
 | `ADO_TEAM_MEMBERS` | Comma-separated list of team member names to include | *(all members)* |
 | `LLM_PROVIDER` | Which AI provider to use: `openai`, `azure-openai`, or `ollama` | `openai` |
-| `LLM_MODEL` | Which AI model to use | `gpt-4o` |
+| `LLM_MODEL` | Which AI model to use | `llava:13b` |
 | `LLM_ENDPOINT` | Custom endpoint URL (required for Azure OpenAI) | — |
 | `LLM_API_VERSION` | API version for Azure OpenAI | `2024-12-01-preview` |
 | `TEAM_NAME` | Your team's name (appears in the report header) | `Engineering Team` |
@@ -111,6 +111,7 @@ Your report will be saved to the `output/` folder.
 | `TEMPLATE_PATH` | Path to a custom report template | `./template_report.md` |
 | `VERBOSE` | Show detailed progress during generation (`true` / `false`) | `false` |
 | `VISION_ENABLED` | Include screenshots from work items in AI analysis (`true` / `false`) | `false` |
+| `ENABLE_COMPARISON` | Enable month-over-month comparison section (`true` / `false`) | `false` |
 
 ---
 
@@ -138,7 +139,7 @@ PREPARED_BY=Alice Johnson
 
 **Run:**
 ```
-npm run start:static
+npx psr-agent --static
 ```
 
 **Result:** A report file at `output/report-february-2026.md` covering all work items assigned to those four team members that were resolved or closed in February.
@@ -179,9 +180,9 @@ Everything else works the same — just swap the provider settings.
 
 You want to run everything locally without sending data to the cloud.
 
-1. Install Ollama from [ollama.com](https://ollama.com)
-2. Pull a model: `ollama pull phi3`
-3. Configure:
+Ollama is **automatically installed and configured** during `npm install` — the postinstall script installs Ollama, pulls the `phi3`, `mistral`, and `llava:13b` models, and when you run the agent with `LLM_PROVIDER=ollama`, the server is auto-started.
+
+1. Configure:
 
 **.env settings:**
 ```
@@ -189,7 +190,11 @@ LLM_PROVIDER=ollama
 LLM_MODEL=phi3
 ```
 
-No API key is needed. The agent connects to Ollama running on your machine at `http://localhost:11434`.
+No API key is needed. The agent auto-starts Ollama and connects at `http://localhost:11434`.
+
+> If auto-install didn't work during `npm install`, install Ollama manually from [ollama.com](https://ollama.com) and run `ollama pull phi3`.
+
+> **Tip:** You can also start from `environment-examples/.env.mistral.example` or `environment-examples/.env.phi3.example` for pre-configured Ollama setups with those models.
 
 ---
 
@@ -199,7 +204,7 @@ Instead of generating a one-shot report, you can have a conversation with the ag
 
 **Run:**
 ```
-npm start
+npx psr-agent
 ```
 
 You'll see a `psr-agent>` prompt. Try these commands:
@@ -228,7 +233,7 @@ You can control whether the month-over-month comparison section is included dire
 
 **Run:**
 ```
-npm start
+npx psr-agent
 ```
 
 **With comparison:**
@@ -321,7 +326,7 @@ If your work items contain screenshots (dashboards, error screenshots, UI mockup
 VISION_ENABLED=true
 ```
 
-The agent extracts images from work item descriptions and comments, fetches them with your ADO credentials, and includes them in the AI analysis. This works best with vision-capable models like `gpt-4o`.
+The agent extracts images from work item descriptions and comments, fetches them with your ADO credentials, and includes them in the AI analysis. This works best with vision-capable models like `gpt-4o` (or `llava:13b` as a local alternative via Ollama).
 
 > **Note:** This increases API usage since images consume additional tokens. Images are sent at low resolution to limit cost.
 
@@ -333,12 +338,12 @@ You can schedule report generation using any task scheduler.
 
 **Windows Task Scheduler:**
 ```
-cd C:\path\to\project-status-report-agent && npm run start:static
+cd C:\path\to\project-status-report-agent && npx psr-agent --static
 ```
 
 **Linux/macOS cron (monthly on the 1st):**
 ```
-0 9 1 * * cd /path/to/project-status-report-agent && npm run start:static
+0 9 1 * * cd /path/to/project-status-report-agent && npx psr-agent --static
 ```
 
 Update `REPORT_START_DATE` and `REPORT_END_DATE` before each run, or modify your script to compute them dynamically.
@@ -392,7 +397,7 @@ You can change the output location with `OUTPUT_PATH` in `.env`.
 | "Missing required environment variables" | Check your `.env` file has all required settings filled in |
 | No work items found | Verify your date range, team member names, and area path match what's in Azure DevOps |
 | API key errors | Make sure `LLM_API_KEY` is correct and the provider matches (`openai` vs `azure-openai`) |
-| Ollama connection refused | Ensure Ollama is running (`ollama serve`) and accessible at `http://localhost:11434` |
-| Images not working with vision | Set `VISION_ENABLED=true` and use a vision-capable model like `gpt-4o` |
+| Ollama connection refused | Ollama is auto-started when `LLM_PROVIDER=ollama` is set. If issues persist, try running `ollama serve` manually and check that it’s accessible at `http://localhost:11434` |
+| Images not working with vision | Set `VISION_ENABLED=true` and use a vision-capable model like `gpt-4o` (or `llava:13b` for local Ollama) |
 | Report is missing sections | Some sections require specific tags on your work items (e.g., S360, ICM). Check your tag mappings. |
 | Team member filter not working | Names must exactly match the Azure DevOps display name (case-sensitive) |
